@@ -1,0 +1,40 @@
+# Virtual Environments
+BCAvenv/
+venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# IDE & OS Settings
+.vscode/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Machine Learning & Jupyter
+.ipynb_checkpoints/
+*.egg-info/
+
+# Data Files (Do not commit massive CSVs to Git)
+# Note: Anyone cloning the repo can regenerate these using src/download_icrisat.py and src/prepare_data.py
+
+# Models (Ignore trained model files if they become large)
+models/*.pkl
+models/*.joblib
+models/*.h5
+
+# However, DO NOT ignore the directory structures themselves
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!models/.gitkeep
+
+/Implementation_Plan.txt
+/Features_Explanation.txt
