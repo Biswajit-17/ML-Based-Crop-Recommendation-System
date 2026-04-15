@@ -6,8 +6,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import warnings
 
-# Force working directory to the project root for local AI testing
-os.chdir(r"c:\Users\Biswajitrk\Documents\Visual Studio Code\ML Based Crop Recommendation System")
+# Resolve project root relative to this script's location
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
 warnings.filterwarnings('ignore')
 
 def main():
@@ -28,14 +29,17 @@ def main():
     X = df[features]
     y = df['Yield (Kg per ha)']
     
-    # 2. Load ML Components
+    # 2. Load ML Components & Apply MLOps Structural Decoupling
     preprocessor = joblib.load('models/simulator_preprocessor.joblib')
     model = joblib.load('models/tuned_simulator.joblib')
     
-    X_processed = preprocessor.transform(X)
+    print("[STEP] Loading decoupled index states to guarantee flawless evaluation mapping")
+    test_idx = joblib.load('models/test_indices.joblib')
+    train_idx = df.index.difference(test_idx)
     
-    # Mathematical identically recreated split
-    X_train, X_test, y_train, y_test = train_test_split(X_processed, y, test_size=0.2, random_state=42)
+    X_processed = preprocessor.transform(X)
+    X_train, X_test = X_processed[train_idx], X_processed[test_idx]
+    y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
     
     # 3. Calculate Metrics
     y_pred_train = model.predict(X_train)
@@ -50,8 +54,8 @@ def main():
     print("\n" + "-"*40)
     print("1. BIAS-VARIANCE (OVERFIT ANALYSIS)")
     print("-"*40)
-    print(f"X_Train Accuracy (Memorization) : {r2_train*100:.2f}%")
-    print(f"X_Test Accuracy  (Generalization): {r2_test*100:.2f}%")
+    print(f"Train R² (Fit Quality) : {r2_train*100:.2f}%")
+    print(f"Test R² (Generalization): {r2_test*100:.2f}%")
     print(f"Generalization Gap               : {abs(r2_train - r2_test)*100:.2f}%  <-- (Healthy gap under 10%)")
     
     print("\n" + "-"*40)
@@ -82,11 +86,12 @@ def main():
     results.sort(key=lambda x: x[1], reverse=True)
     
     print("\nAI Yield Rankings:")
-    for i in range(3):
+    print("\nAI Yield Rankings:")
+    for i in range(min(3, len(results))):
         print(f" #{i+1}: {results[i][0].ljust(12)} -> {results[i][1]:.0f} kg/ha expected.")
 
     print("\n" + "="*70)
-    print("Evaluation Complete. Model is cleared for Production.")
+    print("Evaluation Complete.")
     print("="*70)
 
 if __name__ == "__main__":

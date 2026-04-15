@@ -76,7 +76,6 @@ def clean_master(df):
         "VERTIC SOILS": "VERTISOLS",
         "VERTIC SOLS":  "VERTISOLS",
         "VRTICSOLS":    "VERTISOLS",
-        "VRTICSOLS":    "VERTISOLS",
         "ALFISOL":      "ALFISOLS",
         "ALFISOLS":     "ALFISOLS",
         "USTALF/USTOLLS": "USTALF/USTOLLS",

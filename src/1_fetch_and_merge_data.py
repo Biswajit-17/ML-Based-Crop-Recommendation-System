@@ -140,9 +140,6 @@ def merge_rainfall(master_df, rain_df):
     print("🌧️ Merging rainfall data...")
     print("=" * 60)
     
-    # Select key columns
-    rain_cols = ['Dist Code', 'Year', 'ANNUAL RAINFALL (Millimeters)']
-    
     # Also compute seasonal rainfall
     rain_subset = rain_df.copy()
     
@@ -284,8 +281,7 @@ def clean_and_finalize(master_df):
     
     print(f"  Before cleaning: {master_df.shape[0]:,} rows")
     
-    # Drop rows where key features are all missing
-    key_features = ['N (Kg/ha)', 'Annual Rainfall (mm)', 'Yield (Kg per ha)']
+    # Drop rows where yield is missing (required for ML target)
     master_df = master_df.dropna(subset=['Yield (Kg per ha)'])
     print(f"  After dropping rows without yield: {master_df.shape[0]:,} rows")
     

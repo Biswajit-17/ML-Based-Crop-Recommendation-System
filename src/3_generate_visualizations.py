@@ -72,7 +72,8 @@ def plot_crop_distribution(df):
                 f'{val:,}', va='center', ha='left',
                 color='#e0e0e0', fontsize=9)
     ax.set_xlabel("Number of District-Year Records")
-    ax.set_title("Crop Distribution across Indian Districts (1966-2017)",
+    year_min, year_max = df['Year'].min(), df['Year'].max()
+    ax.set_title(f"Crop Distribution across Indian Districts ({year_min}-{year_max})",
                  pad=14, fontweight='bold', color=ACCENT)
     ax.invert_yaxis()
     ax.xaxis.set_major_formatter(mticker.StrMethodFormatter('{x:,.0f}'))
@@ -222,9 +223,11 @@ def plot_npk_yield(df):
     for ax, nutrient, color in zip(axes, ['N', 'P', 'K'], [PALETTE[0], PALETTE[1], PALETTE[2]]):
         ax.scatter(agg[nutrient], agg['Yield'], alpha=0.5, s=20,
                    color=color, edgecolors='none')
-        m, b = np.polyfit(agg[nutrient].fillna(0), agg['Yield'].fillna(0), 1)
-        x_line = np.linspace(agg[nutrient].min(), agg[nutrient].max(), 100)
-        ax.plot(x_line, m * x_line + b, color='white', linewidth=1.5, linestyle='--')
+        valid = agg[[nutrient, 'Yield']].dropna()
+        if len(valid) > 1:
+            m, b = np.polyfit(valid[nutrient], valid['Yield'], 1)
+            x_line = np.linspace(valid[nutrient].min(), valid[nutrient].max(), 100)
+            ax.plot(x_line, m * x_line + b, color='white', linewidth=1.5, linestyle='--')
         ax.set_xlabel(f'{nutrient} (Kg/ha)')
         ax.set_ylabel('Avg Yield (Kg/ha)')
         ax.set_title(f'{nutrient} vs Yield', fontweight='bold', color=color)

@@ -12,8 +12,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import classification_report, f1_score, accuracy_score, top_k_accuracy_score
 import warnings
 
-# Force working directory to the project root for local AI testing
-os.chdir(r"c:\Users\Biswajitrk\Documents\Visual Studio Code\ML Based Crop Recommendation System")
+# Resolve project root relative to this script's location
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(PROJECT_ROOT)
 
 warnings.filterwarnings('ignore')
 

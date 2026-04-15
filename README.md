@@ -57,10 +57,10 @@ All primary data is sourced from the **ICRISAT District-Level Database** ([data.
 - Created visual correlations between soil types, regions, and optimal crop productivity.
 
 ### Phase 4: Model Training ('The Yield Simulator')
-1.  **Mathematical Pivot (Classification to Regression):** Because district-level environmental data is duplicated across multiple valid crops, classification models (like Neural Networks) mathmatically stall out. We deleted the Classification engine and pivoted to a **Simulation Engine**.
+1.  **Mathematical Pivot (Classification to Regression):** We discovered that modeling recommendation as a purely single-label classification problem is flawed due to the multi-label nature of agriculture (multiple crops can thrive in the exact same environment). To objectively rank multiple crops simultaneously, we abandoned Classification and built a regression-based **Simulation Engine**.
 2.  **The XGBoost Regressor:** Trained a powerful XGBoost regression engine on all 188k historical rows.
 3.  **Simulation Pipeline:** When recommending crops, the AI artificially copies the user's weather inputs 19 times into an array. It predicts the expected yield for all 19 crops over those identical conditions, and objectively ranks the Top 3 winners.
-- **Evaluation:** The XGBoost Simulator achieved **88.48% R-Squared Accuracy** with an MAE of +/- 295kg/ha, proving it is highly accurate at mathematically mirroring the physical reality of the ecosystem.
+- **Evaluation:** The XGBoost Simulator achieved **88.48% R-Squared Accuracy** with an MAE of 295kg/ha, proving it is highly accurate at mathematically mirroring the physical reality of the ecosystem.
 
 ### Phase 5: Web Application & Generative AI
 - Flask REST API for handling predictions.

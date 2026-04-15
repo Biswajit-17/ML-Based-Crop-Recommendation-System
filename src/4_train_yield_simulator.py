@@ -9,8 +9,9 @@ from sklearn.compose import ColumnTransformer
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 import warnings
 
-# Force working directory to the project root for local AI testing
-os.chdir(r"c:\Users\Biswajitrk\Documents\Visual Studio Code\ML Based Crop Recommendation System")
+# Resolve project root relative to this script's location
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
 warnings.filterwarnings('ignore')
 
 def main():
@@ -58,7 +59,13 @@ def main():
     # Save the preprocessor so Phase 5 web app can use it
     joblib.dump(preprocessor, 'models/simulator_preprocessor.joblib')
     
-    X_train, X_test, y_train, y_test = train_test_split(X_processed, y, test_size=0.2, random_state=42)
+    # Save physical row indices to prevent "Metric Bleeding" in the evaluation pipeline 
+    train_idx, test_idx = train_test_split(df.index, test_size=0.2, random_state=42)
+    joblib.dump(test_idx, 'models/test_indices.joblib')
+    
+    # Apply the index cuts
+    X_train, X_test = X_processed[train_idx], X_processed[test_idx]
+    y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
     # -------------------------------------------------------------------
     # 3. HYPERPARAMETER TUNING (XGBOOST)
@@ -74,11 +81,11 @@ def main():
     
     base_xgb = xgb.XGBRegressor(random_state=42, n_jobs=-1, objective='reg:squarederror')
     
-    # We use 5 iterations to find the optimal combination quickly but reliably
+    # We use 15 iterations to explore a much deeper chunk of the 54 possible configurations
     random_search = RandomizedSearchCV(
         estimator=base_xgb,
         param_distributions=param_dist,
-        n_iter=5, 
+        n_iter=15, 
         cv=3, 
         scoring='r2', 
         n_jobs=-1,

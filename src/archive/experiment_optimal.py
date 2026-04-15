@@ -11,9 +11,12 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 import warnings
 
-# Force working directory to the project root for local AI testing
-os.chdir(r"c:\Users\Biswajitrk\Documents\Visual Studio Code\ML Based Crop Recommendation System")
-warnings.filterwarnings('ignore')
+# Resolve project root relative to this script's location
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(PROJECT_ROOT)
+
+# Suppress specific warnings if needed, not all
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 def main():
     print("="*60)
@@ -72,7 +75,7 @@ def main():
         y_pred_z = mlp_z.predict(X_test_z)
         print(f"Z-Score MLP Top-1 Accuracy: {accuracy_score(y_test_z, y_pred_z)*100:.2f}%")
     except Exception as e:
-        print("Error evaluating Idea 1:", str(e))
+        print(f"Error evaluating Idea 1: {type(e).__name__}: {e}")
 
     print("\n-----------------------------------------------------------")
     print("IDEA 2: XGBOOST CLASSIFIER ON STANDARD HIGH-YIELD DATA")
