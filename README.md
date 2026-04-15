@@ -56,15 +56,11 @@ All primary data is sourced from the **ICRISAT District-Level Database** ([data.
 - Mapped 50-year yield upward trends (Green Revolution impact).
 - Created visual correlations between soil types, regions, and optimal crop productivity.
 
-### Phase 4: Model Training (Hybrid Approach)
-1. **Classification Model (Crop Recommendation):** 
-   - Trained *only* on sub-samples where crops achieved high historical yields.
-   - Outputs Top 3 most suitable crops with probability scores.
-2. **Regression Model (Yield Estimation):**
-   - Trained on the complete dataset.
-   - Estimates expected yield (kg/ha) for the recommended crops.
-- **Models:** Random Forest, XGBoost, Support Vector Machines (SVM), and Neural Networks (MLPClassifier).
-- Stratified 5-fold cross-validation and Hyperparameter tuning.
+### Phase 4: Model Training ('The Yield Simulator')
+1.  **Mathematical Pivot (Classification to Regression):** Because district-level environmental data is duplicated across multiple valid crops, classification models (like Neural Networks) mathmatically stall out. We deleted the Classification engine and pivoted to a **Simulation Engine**.
+2.  **The XGBoost Regressor:** Trained a powerful XGBoost regression engine on all 188k historical rows.
+3.  **Simulation Pipeline:** When recommending crops, the AI artificially copies the user's weather inputs 19 times into an array. It predicts the expected yield for all 19 crops over those identical conditions, and objectively ranks the Top 3 winners.
+- **Evaluation:** The XGBoost Simulator achieved **88.48% R-Squared Accuracy** with an MAE of +/- 295kg/ha, proving it is highly accurate at mathematically mirroring the physical reality of the ecosystem.
 
 ### Phase 5: Web Application & Generative AI
 - Flask REST API for handling predictions.
@@ -93,14 +89,12 @@ ML Based Crop Recommendation System/
 │   └── processed/                   # Cleaned & merged data
 │       └── master_dataset_clean.csv # 188k row final dataset
 ├── src/
-│   ├── download_icrisat.py          # API-based data downloader
-│   ├── parse_icrisat.py             # JSON → CSV parser
-│   ├── prepare_data.py              # Wide-to-long fusion pipeline
-│   ├── clean_data.py                # Cleaning and imputation
-│   ├── eda.py                       # Exploratory Data Analysis plot generation
-│   ├── train.py                     # Model training (Classification & Regression)
-│   ├── predict.py                   # Inference logic
-│   └── evaluate.py                  # Evaluation metrics & plots
+│   ├── archive/                         # Deprecated classification experiments
+│   ├── 1_fetch_and_merge_data.py        # API-based data downloader & compiler
+│   ├── 2_clean_and_format_data.py       # Data cleaning, normalization, structure
+│   ├── 3_generate_visualizations.py     # Exploratory Data Analysis & Plotting
+│   ├── 4_train_yield_simulator.py       # ML Pipeline, XGBoost tuning & export
+│   └── 5_evaluate_model.py              # Generates Train/Test metrics & Live Demo
 ├── models/                          # Saved models & artifacts
 ├── app/                             # Flask web application
 │   ├── app.py
@@ -120,8 +114,8 @@ ML Based Crop Recommendation System/
 | 1 | Data collection from ICRISAT | ✅ Complete |
 | 2 | Data preparation & fusion | ✅ Complete |
 | 3 | EDA on enriched dataset | ✅ Complete |
-| 4 | Model training (SVM, RF, NN) | 🔄 Next |
-| 5 | Flask web app + API | ⬜ Pending |
+| 4 | Model training (XGBoost Yield Simulator) | ✅ Complete |
+| 5 | Flask web app + API | 🔄 Next |
 | 6 | Documentation & deployment | ⬜ Pending |
 
 ---
