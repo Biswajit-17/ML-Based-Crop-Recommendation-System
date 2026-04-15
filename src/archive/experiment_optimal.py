@@ -7,7 +7,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import classification_report, accuracy_score, top_k_accuracy_score, r2_score, mean_squared_error
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 import warnings
 
