@@ -1,16 +1,16 @@
-# 🌾 ML-Based Crop Recommendation System
+# ML-Based Crop Recommendation System
 
 An intelligent crop recommendation engine built using real-world Indian agricultural data from ICRISAT, employing multiple ML models to suggest the most suitable crops based on soil nutrients, rainfall, soil type, and geographic conditions.
 
 ---
 
-## 📌 Problem Statement
+## Problem Statement
 
 Given a district's soil nutrient levels (N, P, K), rainfall patterns, soil type, and irrigation availability — recommend the most suitable crops, estimate their expected yields, and generate personalized AI-driven farming advice to maximize yield and sustainability.
 
 ---
 
-## 📊 Data Sources
+## Data Sources
 
 All primary data is sourced from the **ICRISAT District-Level Database** ([data.icrisat.org](http://data.icrisat.org/)):
 
@@ -24,7 +24,7 @@ All primary data is sourced from the **ICRISAT District-Level Database** ([data.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -32,12 +32,12 @@ All primary data is sourced from the **ICRISAT District-Level Database** ([data.
 | Data & EDA | Pandas, NumPy, Matplotlib, Seaborn |
 | ML Training | Scikit-learn, XGBoost |
 | Model Persistence | Joblib |
-| Web Backend | Flask |
-| Web Frontend | HTML / CSS / JS |
+| Web Backend | FastAPI |
+| Web Frontend | React (Vite) + TailwindCSS |
 
 ---
 
-## 🧪 ML Methodology
+## ML Methodology
 
 ### Phase 1: Data Collection & Fusion 
 - Downloaded 5 ICRISAT datasets via their DLD API and portal
@@ -62,11 +62,12 @@ All primary data is sourced from the **ICRISAT District-Level Database** ([data.
 3.  **Simulation Pipeline:** When recommending crops, the AI artificially copies the user's weather inputs 19 times into an array. It predicts the expected yield for all 19 crops over those identical conditions, and objectively ranks the Top 3 winners.
 - **Evaluation:** The XGBoost Simulator achieved **88.48% R-Squared Accuracy** with an MAE of 295kg/ha, proving it is highly accurate at mathematically mirroring the physical reality of the ecosystem.
 
-### Phase 5: Web Application & Generative AI
-- Flask REST API for handling predictions.
-- **LLM Integration:** Raw statistical outputs (Top 3 crops + estimated yields) are passed to an LLM API (Groq/Gemini).
-- The LLM generates a personalized, conversational advisory report containing actionable farming tips tailored to the user's specific inputs.
-- Beautiful, responsive web frontend.
+### Phase 5: Web Application, GenAI & The Suitability Score
+- **FastAPI Backend:** A highly-performant Python API designed to orchestrate the machine learning predictions.
+- **The Suitability Score:** A pure Regressor suffers from "Biomass Bias" (e.g. Sugarcane naturally weighs 80,000kg/ha, easily beating a perfect Wheat crop weighing 5,000kg/ha). To fix this, the backend dynamically calculates the historical **95th Percentile Maximum Yield** for every crop from our 188k row dataset. The API then calculates a **Suitability Percentage** `(Simulated Yield / Perfect Historical Baseline)` and sorts the recommendations by Suitability. If multiple crops tie at 100%, a secondary tie-breaker automatically breaks the tie using raw physical weight!
+- **GenAI Advisory:** Raw statistical outputs and the Suitability Scores are securely proxied through an **Open Router** API integration. The LLM acts as an expert agronomist, translating technical metrics (like mm of rainfall) into plain English and generating a strict, concise 2-paragraph advisory report.
+- **Waterfall LLM Fallback:** The backend implements a robust 3-tier fallback loop. If the primary OpenRouter model hits a rate limit or queue timeout, the API instantly and seamlessly catches the exception and attempts to generate the report using highly-available backup models (Llama 3, Gemma 2), ensuring near 100% GenAI uptime.
+- **React Frontend:** A minimalist, highly intuitive Glassmorphism dashboard built with React and TailwindCSS.
 
 ### Phase 6: Documentation & Deployment
 - Complete README with results
@@ -75,7 +76,7 @@ All primary data is sourced from the **ICRISAT District-Level Database** ([data.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 ML Based Crop Recommendation System/
@@ -96,10 +97,12 @@ ML Based Crop Recommendation System/
 │   ├── 4_train_yield_simulator.py       # ML Pipeline, XGBoost tuning & export
 │   └── 5_evaluate_model.py              # Generates Train/Test metrics & Live Demo
 ├── models/                          # Saved models & artifacts
-├── app/                             # Flask web application
-│   ├── app.py
-│   ├── templates/
-│   └── static/
+├── app/                             # FastAPI Python Backend
+│   └── main.py                      # Main API logic & Suitability Score Engine
+├── frontend/                        # React (Vite) Application
+│   ├── src/                         # React components and styling
+│   ├── index.html
+│   └── tailwind.config.js
 ├── plots/                           # Saved visualizations (generated by eda.py)
 ├── requirements.txt
 └── README.md
@@ -107,7 +110,7 @@ ML Based Crop Recommendation System/
 
 ---
 
-## 🚀 Phased Roadmap
+## Phased Roadmap
 
 | Phase | Deliverable | Status |
 |---|---|---|
@@ -115,12 +118,12 @@ ML Based Crop Recommendation System/
 | 2 | Data preparation & fusion | ✅ Complete |
 | 3 | EDA on enriched dataset | ✅ Complete |
 | 4 | Model training (XGBoost Yield Simulator) | ✅ Complete |
-| 5 | Flask web app + API | 🔄 Next |
+| 5 | FastAPI + React Web App | 🔄 Active |
 | 6 | Documentation & deployment | ⬜ Pending |
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 # Clone the repository
@@ -132,12 +135,44 @@ python -m venv venv
 source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Install React dependencies
+cd frontend
+npm install
 ```
 
 ---
 
-## 📄 License
+## How to Run the Application
+
+Because this is a decoupled architecture, you will need to open **two separate terminal windows** (one for the backend, one for the frontend).
+
+### 1. Start the FastAPI Backend
+Open a terminal in the root project folder:
+```bash
+# Activate the environment (Windows)
+.\BCAvenv\Scripts\activate
+
+# Start the Python AI Engine
+uvicorn app.main:app --reload
+```
+*The backend API will run at `http://localhost:8000`. You can view the testing interface at `http://localhost:8000/docs`.*
+
+### 2. Start the React Frontend
+Open a **second** terminal in the root project folder:
+```bash
+# Navigate to the frontend folder
+cd frontend
+
+# Start the Vite React server
+npm run dev
+```
+*The beautiful user interface will run at `http://localhost:5173`.*
+
+---
+
+## License
 
 This project uses publicly available agricultural data from ICRISAT (International Crops Research Institute for the Semi-Arid Tropics).

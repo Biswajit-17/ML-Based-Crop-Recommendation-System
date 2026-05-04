@@ -61,8 +61,8 @@ def main():
     print("\n" + "-"*40)
     print("2. PHYSICAL ERROR MARGINS")
     print("-"*40)
-    print(f"Mean Absolute Error (MAE)        : +/- {mae:.1f} kg/ha")
-    print(f"Root Mean Squared Error (RMSE)   : +/- {rmse:.1f} kg/ha")
+    print(f"Mean Absolute Error (MAE)        :  {mae:.1f} kg/ha")
+    print(f"Root Mean Squared Error (RMSE)   :  {rmse:.1f} kg/ha")
 
     print("\n" + "-"*40)
     print("3. LIVE RECOMMENDATION TEST")

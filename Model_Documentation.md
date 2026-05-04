@@ -1,10 +1,10 @@
-# 🧠 Crop Prediction Model Documentation: The AI Journey
+# Crop Prediction Model Documentation: The AI Journey
 
 This document explains the iterative mathematical journey of building the Weather-Aware Crop Recommendation System, starting from an initial baseline guesser and organically evolving into a state-of-the-art predictive simulator.
 
 ---
 
-## 🏗️ 1. The Initial Approach: Classification Models (Guessing)
+## 1. The Initial Approach: Classification Models (Guessing)
 Initially, we approached crop recommendation as a **Classification Problem**. A classifier's job is to look at input features (Rainfall, NPK, Soil) and assign a single category (e.g., "Wheat").
 
 To build our baseline, we raced three vastly different mathematical algorithms against our prepared dataset:
@@ -12,21 +12,21 @@ To build our baseline, we raced three vastly different mathematical algorithms a
 2. **Linear Support Vector Machine (SVC):** A geometric algorithm that attempts to draw straight mathematical lines between crop classes. It achieved 22% accuracy, proving that agricultural boundaries are highly non-linear.
 3. **Multi-Layer Perceptron (Neural Network):** A brain-inspired network of artificial neurons. It was the clear winner, achieving nearly 30% strict Top-1 Accuracy, and proving its intelligence with a **~61.8% Top-3 Accuracy**.
 
-## ⚙️ 2. Pushing the Limits: Tuning the Neural Network
+## 2. Pushing the Limits: Tuning the Neural Network
 Because the Neural Network was the definitive mathematical winner, we attempted to optimize its architecture to the absolute limit.
 *   **The Tuning Engine:** We used `RandomizedSearchCV` cross-validation to construct 30 different Neural Network architectures concurrently, testing varying depths and learning rates.
 *   **The Findings:** The math proved that "deepening" the simulated brain to 2 hidden layers (50 neurons each) while utilizing the `tanh` activation squashing function was mathematically superior to the baseline layout. 
     *   *Tuned Parameters:* `hidden_layer_sizes=(50, 50)`, `activation='tanh'`, `alpha=0.01`, `learning_rate_init=0.001`
 *   **The Ceiling:** Despite the aggressive hyperparameter tuning, the final Top-3 Accuracy only rose slightly to **63.3%**.
 
-## 🔄 3. The Architectural Pivot: Classification vs. Reality
+## 3. The Architectural Pivot: Classification vs. Reality
 We quickly realized that the **63% accuracy ceiling was structural**. In our core dataset, environmental variables are recorded at the *district* level. Because actual farming is micro-climatic and highly diverse, a single district could successfully grow Wheat, Rice, and Maize under the exact same aggregated weather conditions. Thus, the Neural Network received identical inputs for three differing, completely valid outputs, mathematically capping its potential. 
 
 To solve this, we pivoted to an advanced **Regression Architecture**. Instead of asking the AI to *guess* a category from identical inputs, we asked it to *calculate* a continuous number: **exactly how many kilograms of food will grow**.
 
 ---
 
-## 🏆 4. The Final Model: 'The Yield Simulator'
+## 4. The Final Model: 'The Yield Simulator'
 By turning a structured "guessing game" into a physics-backed "yield calculation engine," we achieved exceptional real-world optimality.
 
 ### What it is
@@ -34,9 +34,10 @@ The final mathematical brain of the project is an **XGBoost Regressor**. Instead
 
 ### How it was Trained (Detailed)
 1.  **Data Formatting:** We processed 188,463 historical crop rows. We used `StandardScaler` to calculate the Z-score for all numerical features. This prevented the AI from unfairly prioritizing `1200mm` of rain over `45kg` of Nitrogen simply because the numeral was larger. Categorical variables (States, Soils, and crucially, **Crops**) were mathematically converted into binary flags via `OneHotEncoder`.
-2.  **Model Hyper-Tuning:** The regressor underwent extensive parameter tuning across a 54-combination search grid. We executed `RandomizedSearchCV` utilizing an optimal coverage strategy of `15 iterations` (n_iter=15) combined with 3-fold cross-validation to search the mathematical limit effectively without over-spending compute power. The most optimal tree architecture was locked in automatically.
+2.  **Dataset Division (MLOps Standard):** To prevent 'Metric Bleeding', the formatted data was strictly divided using an 80/20 train-test split (`test_size=0.2`). The exact row IDs (Indices) of the 20% test data were permanently saved into a `.joblib` file so that the evaluation scripts are structurally decoupled and strictly test against unseen data.
+3.  **Model Hyper-Tuning:** The regressor underwent extensive parameter tuning across a 54-combination search grid. We executed `RandomizedSearchCV` utilizing an optimal coverage strategy of `15 iterations` (n_iter=15) combined with 3-fold cross-validation to search the mathematical limit effectively without over-spending compute power. The most optimal tree architecture was locked in automatically.
     *   *Tuned Parameters:* `max_depth=10`, `n_estimators=100`, `learning_rate=0.2`, `subsample=1.0`
-3.  **The "Simulation" Engine Logic:** The input feature `Crop` functions as the key. Because the Model is a Regressor, it requires a Crop parameter to calculate a Yield outcome. Therefore, the Python codebase takes the user's weather conditions and artificially duplicates them 19 times into memory (one for every possible crop variant). The AI mathematically runs all 19 parallel environments, predicts the individual `kg/ha`, and objectively sorts the ultimate recommendation by yield mass.
+4.  **The "Simulation" Engine Logic:** The input feature `Crop` functions as the key. Because the Model is a Regressor, it requires a Crop parameter to calculate a Yield outcome. Therefore, the Python codebase takes the user's weather conditions and artificially duplicates them 19 times into memory (one for every possible crop variant). The AI mathematically runs all 19 parallel environments, predicts the individual `kg/ha`, and objectively sorts the ultimate recommendation by yield mass.
 
 ### The Final Outputs
 The Simulation Engine achieved spectacular statistical significance on the hidden test set:
@@ -47,7 +48,7 @@ The recommendation engine successfully explains ~88.5% of the yield variance obs
 
 ---
 
-## 📖 Glossary of Technical Terms
+## Glossary of Technical Terms
 
 | Term | Definition |
 | :--- | :--- |
