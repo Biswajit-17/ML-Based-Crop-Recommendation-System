@@ -67,6 +67,7 @@ export default function App() {
   
   const [formData, setFormData] = useState({
     state_name: 'Maharashtra',
+    district_name: '',
     soil_type: 'VERTISOLS',
     n: 50, p: 20, k: 20,
     annual_rainfall: 1000,
@@ -74,6 +75,8 @@ export default function App() {
     rabi_rainfall: 100,
     irrigation_ratio: 0.5
   });
+
+  const [districtsList, setDistrictsList] = useState([]);
 
   const [climate, setClimate] = useState(null);
   const [loadingClimate, setLoadingClimate] = useState(false);
@@ -83,14 +86,39 @@ export default function App() {
 
   const t = uiDict || {};
 
+  // 1. Fetch Districts when State changes
+  useEffect(() => {
+    const fetchDistricts = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/api/districts/${formData.state_name}`);
+        if (!res.ok) throw new Error("Could not fetch districts");
+        const data = await res.json();
+        setDistrictsList(data);
+        if (data.length > 0) {
+          setFormData(prev => ({ ...prev, district_name: data[0] }));
+        } else {
+          setFormData(prev => ({ ...prev, district_name: "" }));
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchDistricts();
+  }, [formData.state_name]);
+
+  // 2. Fetch Default Climate & Soil data when State OR District changes
   useEffect(() => {
     const fetchDefaults = async () => {
       setLoadingClimate(true);
       setClimate(null);
       setError("");
       try {
-        const res = await fetch(`http://localhost:8000/api/defaults/${formData.state_name}`);
-        if (!res.ok) throw new Error("Could not fetch climate data for this state.");
+        let url = `http://localhost:8000/api/defaults/${formData.state_name}`;
+        if (formData.district_name) {
+          url += `?district=${encodeURIComponent(formData.district_name)}`;
+        }
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Could not fetch climate data for this location.");
         const data = await res.json();
         setClimate({
           annual: Math.round(data.annual_rainfall_avg),
@@ -112,14 +140,16 @@ export default function App() {
         setLoadingClimate(false);
       }
     };
+    
+    // Only fetch if we have either a list of districts resolved, or we don't have any districts
     fetchDefaults();
-  }, [formData.state_name]);
+  }, [formData.state_name, formData.district_name]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: ["state_name", "soil_type"].includes(name) ? value : parseFloat(value) || 0
+      [name]: ["state_name", "district_name", "soil_type"].includes(name) ? value : parseFloat(value) || 0
     }));
   };
 
@@ -165,6 +195,8 @@ export default function App() {
     { medal: "🥇", label: t.rank1, border: "border-amber-400/60", glow: "shadow-amber-500/20", bar: "from-amber-400 to-yellow-500" },
     { medal: "🥈", label: t.rank2, border: "border-slate-400/40", glow: "shadow-slate-400/10", bar: "from-slate-400 to-slate-500" },
     { medal: "🥉", label: t.rank3, border: "border-orange-700/40", glow: "shadow-orange-700/10", bar: "from-orange-600 to-orange-700" },
+    { medal: "🏅", label: t.rank4 || "4th Choice", border: "border-emerald-700/40", glow: "shadow-emerald-700/10", bar: "from-emerald-600 to-emerald-700" },
+    { medal: "🏅", label: t.rank5 || "5th Choice", border: "border-cyan-700/40", glow: "shadow-cyan-700/10", bar: "from-cyan-600 to-cyan-700" },
   ];
 
   if (!languageSelected) {
@@ -294,6 +326,17 @@ export default function App() {
                     {STATES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
+                {districtsList.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">{t.district || "Geographic District"}</label>
+                    <select
+                      name="district_name" value={formData.district_name} onChange={handleChange}
+                      className="w-full bg-slate-900 border border-slate-600/60 rounded-xl px-4 py-3 text-white text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all hover:border-slate-500"
+                    >
+                      {districtsList.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1.5">{t.soil}</label>
                   <select
@@ -392,8 +435,8 @@ export default function App() {
             {simulating && (
               <div className="space-y-4 animate-pulse">
                 <div className="h-48 bg-slate-800/60 rounded-2xl" />
-                <div className="grid grid-cols-3 gap-4">
-                  {[...Array(3)].map((_, i) => <div key={i} className="h-52 bg-slate-800/60 rounded-2xl" />)}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[...Array(5)].map((_, i) => <div key={i} className="h-52 bg-slate-800/60 rounded-2xl" />)}
                 </div>
               </div>
             )}
@@ -419,10 +462,10 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Top 3 Crop Cards */}
+                {/* Top 5 Crop Cards */}
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">{t.simResults}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {results.recommendations.map((rec, i) => {
                       const cfg = getRankConfig()[i];
                       return (
@@ -449,7 +492,14 @@ export default function App() {
                                 {cfg.label}
                               </span>
                             </div>
-                            <p className="text-xs text-slate-400 mb-4">{rec.expected_yield_kg_per_ha.toLocaleString()} kg/ha</p>
+                            <div className="flex flex-col gap-0.5 mb-4">
+                              <p className="text-xs text-slate-400">
+                                <span className="text-sm font-bold text-slate-200">{rec.expected_yield_kg_per_ha.toLocaleString()}</span> kg/ha
+                              </p>
+                              <p className="text-[10px] text-slate-500">
+                                / {rec.max_potential_yield?.toLocaleString()} kg/ha {t.maxPotential || "(Max Potential)"}
+                              </p>
+                            </div>
 
                             <div className="space-y-2">
                               <div className="flex justify-between text-xs">
