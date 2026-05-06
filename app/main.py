@@ -430,7 +430,7 @@ def simulate_yield(request: PredictionRequest):
             prompt = f"""
             You are an expert Indian Agronomist speaking directly to a farmer in {loc_str} with {request.soil_type} soil.
             Their soil nutrients are: N={request.n}, P={request.p}, K={request.k}.
-            Their historical annual rainfall is {request.annual_rainfall} mm.
+            Their historical annual rainfall is {request.annual_rainfall} mm. 
             
             Our AI Simulation Engine has mathematically determined their Top 5 best crops:
             1. {top_5[0][0]} (Suitability: {top_5[0][2]:.1f}%)
