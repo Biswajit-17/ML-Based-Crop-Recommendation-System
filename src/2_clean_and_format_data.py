@@ -1,5 +1,6 @@
 """
 Phase 2 (Part 2): Data Cleaning
+- Filter dataset to modern era: Year 2000-2017
 - Replace ICRISAT's -1 missing markers with NaN
 - Impute or drop based on feature importance
 - Normalize soil type labels
@@ -10,11 +11,15 @@ import pandas as pd
 import numpy as np
 import os
 
+# Resolve project root relative to this script's location
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 PROCESSED_DIR = "data/processed"
 
 def clean_master(df):
     print("=" * 60)
-    print("PHASE 2 (Part 2): CLEANING MASTER DATASET")
+    print("PHASE 2 (Part 2): CLEANING MASTER DATASET (2000-2017)")
     print("=" * 60)
     print(f"\n  Input: {df.shape[0]:,} rows x {df.shape[1]} cols")
 
@@ -153,6 +158,14 @@ def main():
     path_out = os.path.join(PROCESSED_DIR, "master_dataset_clean.csv")
 
     df = pd.read_csv(path_in)
+
+    # -------------------------------------------------------
+    # 0. Filter to Modern Era: Year 2000 - 2017
+    # -------------------------------------------------------
+    before = len(df)
+    df = df[df['Year'] >= 2000]
+    print(f"\n  [0] Year filter (>= 2000): {before - len(df):,} pre-2000 rows removed -> {len(df):,} remain")
+
     df = clean_master(df)
 
     df.to_csv(path_out, index=False)

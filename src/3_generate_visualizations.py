@@ -14,7 +14,11 @@ import seaborn as sns
 import os
 import warnings
 warnings.filterwarnings('ignore')
- 
+
+# Resolve project root relative to this script's location
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 # Style
 sns.set_theme(style="darkgrid", palette="muted")
 plt.rcParams.update({
@@ -149,13 +153,14 @@ def plot_feature_distributions(df):
 #  PLOT 5  Average yield trend over years (top 8 crops)
 # ──────────────────────────────────────────────────────────
 def plot_yield_trend(df):
+    year_min, year_max = df['Year'].min(), df['Year'].max()
     top8 = df['Crop'].value_counts().head(8).index.tolist()
     fig, ax = plt.subplots(figsize=(14, 6), facecolor='#1a1a2e')
     for crop in top8:
         sub = df[df['Crop'] == crop].groupby('Year')['Yield (Kg per ha)'].mean()
         ax.plot(sub.index, sub.values, label=crop,
                 color=CROP_COLORS[crop], linewidth=2, alpha=0.9)
-    ax.set_title("Average Yield Trend (1966–2017) – Top 8 Crops",
+    ax.set_title(f"Average Yield Trend ({year_min:.0f}–{year_max:.0f}) – Top 8 Crops",
                  pad=14, fontweight='bold', color=ACCENT)
     ax.set_xlabel("Year")
     ax.set_ylabel("Average Yield (Kg/ha)")
@@ -245,7 +250,8 @@ def main():
     print("PHASE 3: EXPLORATORY DATA ANALYSIS")
     print("=" * 60)
     df = pd.read_csv("data/processed/master_dataset_clean.csv")
-    print(f"  Loaded: {df.shape[0]:,} rows x {df.shape[1]} cols\n")
+    year_min, year_max = int(df['Year'].min()), int(df['Year'].max())
+    print(f"  Loaded: {df.shape[0]:,} rows x {df.shape[1]} cols (Years: {year_min}-{year_max})\n")
 
     print("[1/8] Crop distribution...")
     plot_crop_distribution(df)

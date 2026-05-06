@@ -77,6 +77,7 @@ export default function App() {
   });
 
   const [districtsList, setDistrictsList] = useState([]);
+  const [soilInputMode, setSoilInputMode] = useState('estimate'); // 'estimate' | 'manual'
 
   const [climate, setClimate] = useState(null);
   const [loadingClimate, setLoadingClimate] = useState(false);
@@ -88,11 +89,13 @@ export default function App() {
 
   // 1. Fetch Districts when State changes
   useEffect(() => {
+    let cancel = false;
     const fetchDistricts = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/districts/${formData.state_name}`);
+        const res = await fetch(`http://${window.location.hostname}:8000/api/districts/${formData.state_name}`);
         if (!res.ok) throw new Error("Could not fetch districts");
         const data = await res.json();
+        if (cancel) return;
         setDistrictsList(data);
         if (data.length > 0) {
           setFormData(prev => ({ ...prev, district_name: data[0] }));
@@ -104,22 +107,29 @@ export default function App() {
       }
     };
     fetchDistricts();
+    return () => { cancel = true; };
   }, [formData.state_name]);
 
   // 2. Fetch Default Climate & Soil data when State OR District changes
   useEffect(() => {
+    let cancel = false;
     const fetchDefaults = async () => {
+      // Prevent fetching if the district name hasn't updated to match the new district list yet
+      if (districtsList.length > 0 && formData.district_name && !districtsList.includes(formData.district_name)) return;
+      
       setLoadingClimate(true);
       setClimate(null);
       setError("");
       try {
-        let url = `http://localhost:8000/api/defaults/${formData.state_name}`;
+        let url = `http://${window.location.hostname}:8000/api/defaults/${formData.state_name}`;
         if (formData.district_name) {
           url += `?district=${encodeURIComponent(formData.district_name)}`;
         }
         const res = await fetch(url);
         if (!res.ok) throw new Error("Could not fetch climate data for this location.");
         const data = await res.json();
+        if (cancel) return;
+        
         setClimate({
           annual: Math.round(data.annual_rainfall_avg),
           kharif: Math.round(data.kharif_rainfall_avg),
@@ -137,13 +147,14 @@ export default function App() {
       } catch (err) {
         setError("⚠️ Could not connect to backend. Is uvicorn running?");
       } finally {
-        setLoadingClimate(false);
+        if (!cancel) setLoadingClimate(false);
       }
     };
     
     // Only fetch if we have either a list of districts resolved, or we don't have any districts
     fetchDefaults();
-  }, [formData.state_name, formData.district_name]);
+    return () => { cancel = true; };
+  }, [formData.state_name, formData.district_name, districtsList]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -160,7 +171,7 @@ export default function App() {
     setResults(null);
     try {
       const payload = { ...formData, language: lang };
-      const res = await fetch('http://localhost:8000/api/simulate', {
+      const res = await fetch(`http://${window.location.hostname}:8000/api/simulate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -179,7 +190,7 @@ export default function App() {
     setLang(selectedLang);
     setLoadingUi(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/ui-language/${selectedLang}`);
+      const res = await fetch(`http://${window.location.hostname}:8000/api/ui-language/${selectedLang}`);
       if (!res.ok) throw new Error("Translation failed");
       const data = await res.json();
       setUiDict(data);
@@ -391,12 +402,88 @@ export default function App() {
 
             {/* Soil Chemistry Card */}
             <div className="bg-slate-800/30 border border-slate-700/40 rounded-2xl p-6 backdrop-blur-sm">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-5">{t.soilChem}</h2>
-              <div className="space-y-5">
-                <SliderInput label={t.n} name="n" value={formData.n} min={0} max={300} step={1} unit="kg/ha" color="text-blue-400" onChange={handleChange} />
-                <SliderInput label={t.p} name="p" value={formData.p} min={0} max={150} step={1} unit="kg/ha" color="text-rose-400" onChange={handleChange} />
-                <SliderInput label={t.k} name="k" value={formData.k} min={0} max={150} step={1} unit="kg/ha" color="text-yellow-400" onChange={handleChange} />
+              {/* Header + Mode Toggle */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">{t.soilChem}</h2>
+                <div className="flex items-center bg-slate-900/60 border border-slate-700/40 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setSoilInputMode('estimate')}
+                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-all ${
+                      soilInputMode === 'estimate'
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    📊 Estimate
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSoilInputMode('manual');
+                      setFormData(prev => ({ ...prev, n: 0, p: 0, k: 0 }));
+                    }}
+                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-all ${
+                      soilInputMode === 'manual'
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    🧪 My Soil Card
+                  </button>
+                </div>
               </div>
+
+              {/* Estimate Mode Warning */}
+              {soilInputMode === 'estimate' && (
+                <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3 py-2.5 mb-4">
+                  <span className="text-amber-400 text-sm mt-0.5">⚠️</span>
+                  <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                    Using <strong>district historical averages</strong>. For precise results, switch to <strong>My Soil Card</strong> and enter values from your Government Soil Health Card report.
+                  </p>
+                </div>
+              )}
+
+              {/* Manual Mode Instructions */}
+              {soilInputMode === 'manual' && (
+                <div className="flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-3 py-2.5 mb-4">
+                  <span className="text-emerald-400 text-sm mt-0.5">✅</span>
+                  <p className="text-[11px] text-emerald-300/80 leading-relaxed">
+                    Enter the <strong>N, P, K values</strong> exactly as printed on your <strong>Soil Health Card</strong> report from the Government test centre.
+                  </p>
+                </div>
+              )}
+
+              {soilInputMode === 'estimate' ? (
+                <div className="space-y-5">
+                  <SliderInput label={t.n} name="n" value={formData.n} min={0} max={300} step={1} unit="kg/ha" color="text-blue-400" onChange={handleChange} />
+                  <SliderInput label={t.p} name="p" value={formData.p} min={0} max={150} step={1} unit="kg/ha" color="text-rose-400" onChange={handleChange} />
+                  <SliderInput label={t.k} name="k" value={formData.k} min={0} max={150} step={1} unit="kg/ha" color="text-yellow-400" onChange={handleChange} />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {[
+                    { key: 'n', label: 'Nitrogen (N)', color: 'text-blue-400', accent: 'focus:border-blue-500/60 focus:ring-blue-500/20' },
+                    { key: 'p', label: 'Phosphorus (P)', color: 'text-rose-400', accent: 'focus:border-rose-500/60 focus:ring-rose-500/20' },
+                    { key: 'k', label: 'Potassium (K)', color: 'text-yellow-400', accent: 'focus:border-yellow-500/60 focus:ring-yellow-500/20' },
+                  ].map(({ key, label, color, accent }) => (
+                    <div key={key} className="flex items-center gap-3">
+                      <label className={`text-sm font-semibold ${color} w-36 shrink-0`}>{label}</label>
+                      <div className="flex-1 relative">
+                        <input
+                          type="number"
+                          name={key}
+                          value={formData[key]}
+                          min={0}
+                          max={key === 'n' ? 300 : 150}
+                          onChange={handleChange}
+                          className={`w-full bg-slate-900/80 border border-slate-700 ${accent} text-white text-sm font-mono px-3 py-2 rounded-xl outline-none ring-0 focus:ring-2 transition-all`}
+                          placeholder="0"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">kg/ha</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Simulate Button */}

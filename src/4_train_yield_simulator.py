@@ -22,7 +22,7 @@ def main():
     # -------------------------------------------------------------------
     # 1. LOAD AND PREPARE UNIFIED DATASET
     # -------------------------------------------------------------------
-    print("\n[STEP 1] Loading full historical dataset (1966-2017)...")
+    print("\n[STEP 1] Loading modern era dataset (2000-2017)...")
     df = pd.read_csv('data/processed/master_dataset_clean.csv')
     
     # 💡 Crucial Architectural Change: CROP is now an INPUT feature!
@@ -73,23 +73,25 @@ def main():
     print("\n[STEP 3] Tuning the Simulation Engine (Randomized Search over XGBoost)...")
     
     param_dist = {
-        'max_depth': [6, 8, 10],            # How deep the logic trees grow
-        'learning_rate': [0.05, 0.1, 0.2],  # How aggressively learning corrects errors
-        'n_estimators': [100, 200, 300],    # Total number of trees in the forest
-        'subsample': [0.8, 1.0]             # Use 80-100% of rows per tree to prevent overfitting
+        'max_depth': [4, 5, 6],             # CAPPED at 6: prevents memorizing 66K row dataset
+        'learning_rate': [0.05, 0.1, 0.15], # How aggressively learning corrects errors
+        'n_estimators': [300, 400, 500],    # More trees to compensate for shallower depth
+        'subsample': [0.7, 0.8, 0.9],       # Row sampling for variance reduction
+        'min_child_weight': [3, 5, 7],      # Minimum samples per leaf (regularization)
+        'colsample_bytree': [0.7, 0.8, 1.0] # Feature sampling per tree
     }
     
     base_xgb = xgb.XGBRegressor(random_state=42, n_jobs=-1, objective='reg:squarederror')
     
-    # We use 15 iterations to explore a much deeper chunk of the 54 possible configurations
+    # 20 iterations over a deeper regularized search space
     random_search = RandomizedSearchCV(
         estimator=base_xgb,
         param_distributions=param_dist,
-        n_iter=15, 
-        cv=3, 
+        n_iter=20, 
+        cv=5,              # 5-fold CV for more reliable generalization estimate
         scoring='r2', 
         n_jobs=-1,
-        verbose=0,
+        verbose=1,
         random_state=42
     )
     
@@ -127,7 +129,7 @@ def main():
     # -------------------------------------------------------------------
     print("\n[STEP 5] LIVE DEMONSTRATION OF HOW THE WEB APP WILL WORK:")
     # Let's pull a random environment from the dataset (row 50000)
-    sample_env = df.iloc[[50000]].copy()
+    sample_env = df.iloc[[5000]].copy()
     print(f"-> A farmer in {sample_env['State Name'].values[0]} exactly replicates this environment:")
     print(f"   Rainfall: {sample_env['Annual Rainfall (mm)'].values[0]}mm | Soil: {sample_env['Primary Soil Type'].values[0]} | N: {sample_env['N (Kg/ha)'].values[0]:.0f}")
     

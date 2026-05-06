@@ -304,19 +304,18 @@ def get_state_defaults(state_name: str, district: str = None):
             lat = geo_res.json()[0]['lat']
             lon = geo_res.json()[0]['lon']
             
-            # 2. Fetch BOTH 2024 and 2025 in one single API call
+            # 2. Fetch 10-Year historical data block (2015-2024)
             weather_res = httpx.get(
-                f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date=2024-01-01&end_date=2025-12-31&daily=precipitation_sum&timezone=auto",
-                timeout=5.0
+                f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date=2015-01-01&end_date=2024-12-31&daily=precipitation_sum&timezone=auto",
+                timeout=10.0
             )
             if weather_res.status_code == 200:
                 data = weather_res.json()
                 dates = data['daily']['time']
                 precip = data['daily']['precipitation_sum']
                 
-                # Accumulators for each year
-                yearly = {2024: {"annual": 0, "kharif": 0, "rabi": 0},
-                          2025: {"annual": 0, "kharif": 0, "rabi": 0}}
+                # Accumulators for 10 years
+                yearly = {y: {"annual": 0, "kharif": 0, "rabi": 0} for y in range(2015, 2025)}
                 
                 for d, p in zip(dates, precip):
                     if p is None: continue
@@ -329,12 +328,13 @@ def get_state_defaults(state_name: str, district: str = None):
                     elif month >= 10 or month <= 3:
                         yearly[year]["rabi"] += p
 
-                # Average the two years for a more statistically reliable baseline
-                annual_rain = round((yearly[2024]["annual"] + yearly[2025]["annual"]) / 2, 1)
-                kharif_rain = round((yearly[2024]["kharif"] + yearly[2025]["kharif"]) / 2, 1)
-                rabi_rain   = round((yearly[2024]["rabi"]   + yearly[2025]["rabi"])   / 2, 1)
+                # Average the 10 years for a highly statistically reliable baseline
+                annual_rain = round(sum(yearly[y]["annual"] for y in range(2015, 2025)) / 10, 1)
+                kharif_rain = round(sum(yearly[y]["kharif"] for y in range(2015, 2025)) / 10, 1)
+                rabi_rain   = round(sum(yearly[y]["rabi"]   for y in range(2015, 2025)) / 10, 1)
+                
                 location_msg = f"{district}, {state_name}" if district else state_name
-                print(f"Successfully fetched 2-year averaged weather for {location_msg} (2024+2025)")
+                print(f"Successfully fetched 10-year averaged weather for {location_msg} (2015-2024)")
     except Exception as e:
         print(f"Live Weather API Failed. Falling back to 50-year historical average: {e}")
         
