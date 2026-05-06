@@ -1,4 +1,4 @@
-# ML-Based Crop Recommendation System
+# ML-Based Crop Recommendation System (Deprecated)
 
 An intelligent crop recommendation engine built using real-world Indian agricultural data from ICRISAT, employing multiple ML models to suggest the most suitable crops based on soil nutrients, rainfall, soil type, and geographic conditions.
 
