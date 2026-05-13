@@ -3,8 +3,6 @@ numpy
 scikit-learn
 matplotlib
 seaborn
-jupyter
-ipykernel
 xgboost
 joblib
 fastapi
