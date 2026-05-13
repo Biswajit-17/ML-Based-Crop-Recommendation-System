@@ -1,12 +1,12 @@
-# ML-Based Crop Recommendation System (Deprecated)
+# NEXUS Yield — AI Crop Intelligence Engine
 
-An intelligent crop recommendation engine built using real-world Indian agricultural data from ICRISAT, employing multiple ML models to suggest the most suitable crops based on soil nutrients, rainfall, soil type, and geographic conditions.
+An intelligent, multilingual crop recommendation engine built on real-world Indian agricultural data from ICRISAT. The system uses an XGBoost regression simulator to predict expected crop yields across 19 crops, 20 states, and 310 districts — enriched with live 10-year satellite climate data and a generative AI advisory layer.
 
 ---
 
 ## Problem Statement
 
-Given a district's soil nutrient levels (N, P, K), rainfall patterns, soil type, and irrigation availability — recommend the most suitable crops, estimate their expected yields, and generate personalized AI-driven farming advice to maximize yield and sustainability.
+Given a district's soil nutrient levels (N, P, K), rainfall patterns, soil type, and irrigation availability — recommend the most suitable crops, estimate their expected yields, calculate a Suitability Score, and generate a personalized AI-driven farming advisory in any language.
 
 ---
 
@@ -14,13 +14,16 @@ Given a district's soil nutrient levels (N, P, K), rainfall patterns, soil type,
 
 All primary data is sourced from the **ICRISAT District-Level Database** ([data.icrisat.org](http://data.icrisat.org/)):
 
-| Dataset | Rows | Features | Description |
-|---|---|---|---|
-| Crop Area/Production/Yield | 16,146 | 80 | 25 crops × (area, production, yield) across 20 states, 311 districts (1966–2017) |
-| Fertilizer Consumption | 16,047 | 20 | N, P, K consumption (tons, kg/ha) per district/year |
-| Monthly Rainfall | 14,527 | 18 | Jan–Dec monthly + annual rainfall (mm) per district/year |
-| Soil Type | 313 | 6 | Soil classification per district |
-| Irrigation | 15,943 | 25 | Crop-wise irrigated area for 20 crops |
+| Dataset | Features | Description |
+|---|---|---|
+| Crop Area/Production/Yield | 80 | 25 crops × (area, production, yield) across 20 states, 310 districts |
+| Fertilizer Consumption | 20 | N, P, K consumption (tons, kg/ha) per district/year |
+| Monthly Rainfall | 18 | Jan–Dec monthly + annual rainfall (mm) per district/year |
+| Soil Type | 6 | Soil classification per district |
+| Irrigation | 25 | Crop-wise irrigated area for 20 crops |
+
+**Active Training Window: 2000–2017 (18 years, 66,645 records)**
+The dataset was deliberately trimmed to the modern era (post-2000) to remove outdated pre-Green Revolution agricultural practices that no longer reflect current farming conditions.
 
 ---
 
@@ -32,47 +35,49 @@ All primary data is sourced from the **ICRISAT District-Level Database** ([data.
 | Data & EDA | Pandas, NumPy, Matplotlib, Seaborn |
 | ML Training | Scikit-learn, XGBoost |
 | Model Persistence | Joblib |
-| Web Backend | FastAPI |
+| Web Backend | FastAPI + Uvicorn |
 | Web Frontend | React (Vite) + TailwindCSS |
+| Live Climate | Open-Meteo Archive API (10-year rolling window) |
+| Geocoding | OpenStreetMap Nominatim |
+| Generative AI | OpenRouter (multi-model LLM orchestration) |
 
 ---
 
 ## ML Methodology
 
-### Phase 1: Data Collection & Fusion 
+### Phase 1: Data Collection & Fusion
 - Downloaded 5 ICRISAT datasets via their DLD API and portal
 - Common merge keys: `Dist Code`, `Year`, `State Name`, `Dist Name`
-- Coverage: 20 states, 311 districts, 52 years (1966–2017)
+- Coverage: 20 states, 310 districts
 
 ### Phase 2: Data Preparation & Feature Engineering
-- Merge all 5 datasets into a master dataset on district + year
-- Reshape crop data from wide → long (one row per district-crop-year)
-- Engineer features: annual rainfall, NPK per hectare, soil type encoding
-- Handle missing values and outliers
+- Merged all 5 datasets into a master dataset on district + year
+- Reshaped crop data from wide → long (one row per district-crop-year)
+- **Filtered to 2000–2017:** Removed 125,807 pre-2000 rows to focus on the modern agricultural era
+- Engineered features: annual rainfall, NPK per hectare, irrigation ratio
+- Handled missing values, ICRISAT `-1` markers, and yield outliers (>12,000 kg/ha)
+- Final clean dataset: **66,645 rows × 18 columns**
 
 ### Phase 3: Exploratory Data Analysis
-- Generated 8 publication-quality predictive plots.
-- Discovered high correlation between Nitrogen levels and historical yields.
-- Mapped 50-year yield upward trends (Green Revolution impact).
-- Created visual correlations between soil types, regions, and optimal crop productivity.
+- Generated 8 publication-quality plots across crop distribution, yield trends, soil type correlations, NPK scatter analysis, and state-wise comparisons.
+- All plots reflect the 2000–2017 training window.
 
-### Phase 4: Model Training ('The Yield Simulator')
-1.  **Mathematical Pivot (Classification to Regression):** We discovered that modeling recommendation as a purely single-label classification problem is flawed due to the multi-label nature of agriculture (multiple crops can thrive in the exact same environment). To objectively rank multiple crops simultaneously, we abandoned Classification and built a regression-based **Simulation Engine**.
-2.  **The XGBoost Regressor:** Trained a powerful XGBoost regression engine on all 188k historical rows.
-3.  **Simulation Pipeline:** When recommending crops, the AI artificially copies the user's weather inputs 19 times into an array. It predicts the expected yield for all 19 crops over those identical conditions, and objectively ranks the Top 3 winners.
-- **Evaluation:** The XGBoost Simulator achieved **88.48% R-Squared Accuracy** with an MAE of 295kg/ha, proving it is highly accurate at mathematically mirroring the physical reality of the ecosystem.
+### Phase 4: Model Training — The Yield Simulator
+1. **Mathematical Pivot (Classification → Regression):** We discovered that modeling recommendation as a single-label classification problem is flawed. Multiple crops can thrive under the exact same district-level conditions. We abandoned classification and built a regression-based **Simulation Engine** instead.
+2. **The XGBoost Regressor:** Trained on 66,645 modern-era records. `Crop` is used as an **input feature** (not a label), allowing the model to predict yield for any crop in any environment.
+3. **Simulation Pipeline:** The user's environment is duplicated 19 times (one per crop). The model predicts yield for all 19 simultaneously, then ranks the Top 5 by Suitability Score.
+4. **Tuned Hyperparameters:** `max_depth=6`, `n_estimators=500`, `learning_rate=0.15`, `subsample=0.8`, `min_child_weight=3`, `colsample_bytree=1.0` (20-iteration RandomizedSearchCV, 5-fold CV)
+5. **Evaluation:** Test R² = **87.95%**, MAE = **323.2 kg/ha**, RMSE = **542.8 kg/ha**, Generalization Gap = **7.35%** (healthy).
 
 ### Phase 5: Web Application, GenAI & The Suitability Score
-- **FastAPI Backend:** A highly-performant Python API designed to orchestrate the machine learning predictions.
-- **The Suitability Score:** A pure Regressor suffers from "Biomass Bias" (e.g. Sugarcane naturally weighs 80,000kg/ha, easily beating a perfect Wheat crop weighing 5,000kg/ha). To fix this, the backend dynamically calculates the historical **95th Percentile Maximum Yield** for every crop from our 188k row dataset. The API then calculates a **Suitability Percentage** `(Simulated Yield / Perfect Historical Baseline)` and sorts the recommendations by Suitability. If multiple crops tie at 100%, a secondary tie-breaker automatically breaks the tie using raw physical weight!
-- **GenAI Advisory:** Raw statistical outputs and the Suitability Scores are securely proxied through an **Open Router** API integration. The LLM acts as an expert agronomist, translating technical metrics (like mm of rainfall) into plain English and generating a strict, concise 2-paragraph advisory report.
-- **Waterfall LLM Fallback:** The backend implements a robust 3-tier fallback loop. If the primary OpenRouter model hits a rate limit or queue timeout, the API instantly and seamlessly catches the exception and attempts to generate the report using highly-available backup models (Llama 3, Gemma 2), ensuring near 100% GenAI uptime.
-- **React Frontend:** A minimalist, highly intuitive Glassmorphism dashboard built with React and TailwindCSS.
-
-### Phase 6: Documentation & Deployment
-- Complete README with results
-- Docker containerization
-- Deploy to Render / Railway
+- **FastAPI Backend:** A high-performance Python API orchestrating ML predictions, live climate fetching, and AI advisory generation.
+- **The Suitability Score:** A pure Regressor suffers from "Biomass Bias" (Sugarcane at 80,000 kg/ha always beats Wheat at 5,000 kg/ha). The backend calculates each crop's **95th Percentile Maximum Yield** from the 2000–2017 dataset and computes `(Predicted Yield / Historical Max) × 100` as a normalized Suitability Percentage.
+- **Live Climate (10-Year Rolling Window):** The backend fetches daily precipitation data from the Open-Meteo Archive API for a dynamic 10-year window ending at the last complete calendar year (e.g., 2016–2025 in 2026). This window advances automatically each year with no code changes.
+- **Dual-Mode Soil Input (Trust but Verify):** Users can either use historical district-average NPK values or manually enter their own values from a Soil Health Card for more precise simulation.
+- **Season-Aware Crop Badges:** Each recommendation card displays an advisory badge showing whether the crop is in its optimal planting season, using a three-tier classification (strict Kharif/Rabi crops vs. multi-season flexible crops) based on ICAR crop calendar guidelines.
+- **GenAI Advisory:** Top 5 results and Suitability Scores are sent to an LLM via OpenRouter. The model acts as an expert agronomist, generating a strict, 3-paragraph advisory in plain language.
+- **Waterfall LLM Fallback:** A 3-tier fallback loop catches rate limits/timeouts and seamlessly retries with backup models, ensuring near-100% AI advisory uptime.
+- **Multilingual Support:** The entire UI (labels, buttons, advisory report) can be translated to any language at runtime via a single LLM API call, with English, Hindi, and Marathi available as one-click options.
 
 ---
 
@@ -87,24 +92,23 @@ ML Based Crop Recommendation System/
 │   │   ├── monthly_rainfall.csv
 │   │   ├── soil_type_percent.csv
 │   │   └── irrigation_data.csv
-│   └── processed/                   # Cleaned & merged data
-│       └── master_dataset_clean.csv # 188k row final dataset
+│   └── processed/
+│       └── master_dataset_clean.csv # 66,645 row clean dataset (2000-2017)
 ├── src/
-│   ├── archive/                         # Deprecated classification experiments
 │   ├── 1_fetch_and_merge_data.py        # API-based data downloader & compiler
-│   ├── 2_clean_and_format_data.py       # Data cleaning, normalization, structure
-│   ├── 3_generate_visualizations.py     # Exploratory Data Analysis & Plotting
-│   ├── 4_train_yield_simulator.py       # ML Pipeline, XGBoost tuning & export
-│   └── 5_evaluate_model.py              # Generates Train/Test metrics & Live Demo
-├── models/                          # Saved models & artifacts
-├── app/                             # FastAPI Python Backend
-│   └── main.py                      # Main API logic & Suitability Score Engine
+│   ├── 2_clean_and_format_data.py       # Cleaning, year filter (2000–2017), normalization
+│   ├── 3_generate_visualizations.py     # Exploratory Data Analysis & Plotting (8 plots)
+│   ├── 4_train_yield_simulator.py       # XGBoost tuning, preprocessing pipeline & export
+│   └── 5_evaluate_model.py              # Train/Test metrics, generalization gap, live demo
+├── models/                          # Saved models & artifacts (.joblib)
+├── app/
+│   └── main.py                      # FastAPI backend: API routes, simulation, climate fetch
 ├── frontend/                        # React (Vite) Application
-│   ├── src/                         # React components and styling
-│   ├── index.html
-│   └── tailwind.config.js
-├── plots/                           # Saved visualizations (generated by eda.py)
-├── requirements.txt
+│   ├── src/App.jsx                  # Main UI: simulation form, crop cards, season badges
+│   └── public/crops/                # Crop imagery
+├── plots/                           # EDA visualizations (generated by script 3)
+├── requirements.txt                 # Runtime Python dependencies
+├── dev-requirements.txt             # Development-only (Jupyter, ipykernel)
 └── README.md
 ```
 
@@ -115,11 +119,11 @@ ML Based Crop Recommendation System/
 | Phase | Deliverable | Status |
 |---|---|---|
 | 1 | Data collection from ICRISAT | ✅ Complete |
-| 2 | Data preparation & fusion | ✅ Complete |
-| 3 | EDA on enriched dataset | ✅ Complete |
-| 4 | Model training (XGBoost Yield Simulator) | ✅ Complete |
-| 5 | FastAPI + React Web App | 🔄 Active |
-| 6 | Documentation & deployment | ⬜ Pending |
+| 2 | Data preparation & fusion (2000–2017 filter) | ✅ Complete |
+| 3 | EDA on modern-era dataset | ✅ Complete |
+| 4 | XGBoost Yield Simulator (retrained, regularized) | ✅ Complete |
+| 5 | FastAPI + React Web App + GenAI + Multilingual | ✅ Complete |
+| 6 | Documentation & Deployment | 🔄 In Progress |
 
 ---
 
@@ -132,8 +136,8 @@ cd "ML Based Crop Recommendation System"
 
 # Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
+source venv/bin/activate  # Linux/Mac
 
 # Install Python dependencies
 pip install -r requirements.txt
@@ -145,34 +149,49 @@ npm install
 
 ---
 
-## How to Run the Application
+## How to Run
 
-Because this is a decoupled architecture, you will need to open **two separate terminal windows** (one for the backend, one for the frontend).
+Open **two terminal windows** in the project root.
 
 ### 1. Start the FastAPI Backend
-Open a terminal in the root project folder:
 ```bash
 # Activate the environment (Windows)
-.\BCAvenv\Scripts\activate
+venv\Scripts\activate
 
 # Start the Python AI Engine
 uvicorn app.main:app --reload
 ```
-*The backend API will run at `http://localhost:8000`. You can view the testing interface at `http://localhost:8000/docs`.*
+*Backend API runs at `http://localhost:8000`. Swagger docs at `http://localhost:8000/docs`.*
 
 ### 2. Start the React Frontend
-Open a **second** terminal in the root project folder:
 ```bash
-# Navigate to the frontend folder
 cd frontend
-
-# Start the Vite React server
 npm run dev
 ```
-*The beautiful user interface will run at `http://localhost:5173`.*
+*UI runs at `http://localhost:5173`. Accessible on local network via your machine's IP.*
+
+### 3. Retraining the Model (if needed)
+Run scripts in order from the `src/` directory:
+```bash
+cd src
+python 2_clean_and_format_data.py   # Rebuild clean dataset
+python 3_generate_visualizations.py # Regenerate EDA plots
+python 4_train_yield_simulator.py   # Retrain XGBoost model
+python 5_evaluate_model.py          # Evaluate & print metrics
+```
+
+---
+
+## Environment Variables
+
+Create a `.env` file in the project root:
+```
+OPENROUTER_API_KEY=your_key_here
+```
+Get a free key at [openrouter.ai](https://openrouter.ai).
 
 ---
 
 ## License
 
-This project uses publicly available agricultural data from ICRISAT (International Crops Research Institute for the Semi-Arid Tropics).
+This project uses publicly available agricultural data from ICRISAT (International Crops Research Institute for the Semi-Arid Tropics). Data is freely available for research and non-commercial use.
