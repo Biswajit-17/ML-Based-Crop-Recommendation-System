@@ -9,9 +9,10 @@ import numpy as np
 import os
 import xgboost
 import json
+import datetime
 from openai import OpenAI
 from dotenv import load_dotenv
-from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint  # noqa: F401 — kept for optional HF translation pipeline
 
 # Load environment variables 
 load_dotenv()
@@ -67,7 +68,7 @@ CROP_DISPLAY_NAMES = {
 
 # The single source of truth for the English UI Dictionary
 ENGLISH_UI_BASE = {
-    "heroTag": "Live Climate Data · 2024/2025 Satellite Verified",
+    "heroTag": "Live Climate Data · 10-Year Decadal Average (Open-Meteo)",
     "heroTitle1": "AI-Powered",
     "heroTitle2": "Crop Intelligence",
     "heroSub": "Select your state, district, and soil type. We fetch the latest climate data automatically and simulate the best crops for your land.",
@@ -75,7 +76,7 @@ ENGLISH_UI_BASE = {
     "state": "Geographic State",
     "district": "Geographic District",
     "soil": "Primary Soil Type",
-    "liveClimate": "Live Climate (2-Year Avg)",
+    "liveClimate": "Live Climate (10-Year Avg)",
     "fetching": "Fetching...",
     "loaded": "Loaded",
     "annual": "Annual",
@@ -295,7 +296,7 @@ def get_state_defaults(state_name: str, district: str = None):
     kharif_rain = round(dist_data['Kharif Rainfall (mm)'].mean(), 1)
     rabi_rain = round(dist_data['Rabi Rainfall (mm)'].mean(), 1)
     
-    # Attempt to fetch LIVE weather data from Open-Meteo API (2-year average: 2024 + 2025)
+    # Attempt to fetch LIVE weather data from Open-Meteo API (rolling 10-year window)
     try:
         # 1. Get Lat/Lon of State or District
         query = f"{district},{state_name}+India" if district else f"{state_name}+India"
@@ -303,20 +304,26 @@ def get_state_defaults(state_name: str, district: str = None):
         if geo_res.status_code == 200 and len(geo_res.json()) > 0:
             lat = geo_res.json()[0]['lat']
             lon = geo_res.json()[0]['lon']
-            
-            # 2. Fetch 10-Year historical data block (2015-2024)
+
+            # 2. Compute dynamic 10-year window: always ends at last complete year
+            end_year   = datetime.datetime.now().year - 1   # e.g. 2025 in 2026
+            start_year = end_year - 9                        # e.g. 2016 in 2026
+            start_date = f"{start_year}-01-01"
+            end_date   = f"{end_year}-12-31"
+
+            # 3. Fetch the full window from Open-Meteo Archive API
             weather_res = httpx.get(
-                f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date=2015-01-01&end_date=2024-12-31&daily=precipitation_sum&timezone=auto",
+                f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&daily=precipitation_sum&timezone=auto",
                 timeout=10.0
             )
             if weather_res.status_code == 200:
                 data = weather_res.json()
                 dates = data['daily']['time']
                 precip = data['daily']['precipitation_sum']
-                
-                # Accumulators for 10 years
-                yearly = {y: {"annual": 0, "kharif": 0, "rabi": 0} for y in range(2015, 2025)}
-                
+
+                # Accumulators for each year in the window
+                yearly = {y: {"annual": 0, "kharif": 0, "rabi": 0} for y in range(start_year, end_year + 1)}
+
                 for d, p in zip(dates, precip):
                     if p is None: continue
                     year = int(d.split('-')[0])
@@ -328,15 +335,16 @@ def get_state_defaults(state_name: str, district: str = None):
                     elif month >= 10 or month <= 3:
                         yearly[year]["rabi"] += p
 
-                # Average the 10 years for a highly statistically reliable baseline
-                annual_rain = round(sum(yearly[y]["annual"] for y in range(2015, 2025)) / 10, 1)
-                kharif_rain = round(sum(yearly[y]["kharif"] for y in range(2015, 2025)) / 10, 1)
-                rabi_rain   = round(sum(yearly[y]["rabi"]   for y in range(2015, 2025)) / 10, 1)
-                
+                # Average across all 10 years for a statistically reliable baseline
+                n_years = end_year - start_year + 1
+                annual_rain = round(sum(yearly[y]["annual"] for y in range(start_year, end_year + 1)) / n_years, 1)
+                kharif_rain = round(sum(yearly[y]["kharif"] for y in range(start_year, end_year + 1)) / n_years, 1)
+                rabi_rain   = round(sum(yearly[y]["rabi"]   for y in range(start_year, end_year + 1)) / n_years, 1)
+
                 location_msg = f"{district}, {state_name}" if district else state_name
-                print(f"Successfully fetched 10-year averaged weather for {location_msg} (2015-2024)")
+                print(f"Fetched {n_years}-year averaged weather for {location_msg} ({start_year}-{end_year})")
     except Exception as e:
-        print(f"Live Weather API Failed. Falling back to 50-year historical average: {e}")
+        print(f"Live Weather API Failed. Falling back to historical average: {e}")
         
     return {
         "state": state_name.upper(),
@@ -389,7 +397,7 @@ def simulate_yield(request: PredictionRequest):
         # 4. Predict Yields for all 19 crops
         simulated_yields = simulator_model.predict(X_processed)
         
-        # 5. Calculate "Suitability Score" (%) and Sort Top 3
+        # 5. Calculate "Suitability Score" (%) and Sort Top 5
         # We divide the predicted yield by the crop's 95th percentile historical max.
         # This prevents extremely heavy crops (like Sugarcane) from always winning.
         results = []
