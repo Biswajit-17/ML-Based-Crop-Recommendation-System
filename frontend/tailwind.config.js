@@ -5,8 +5,17 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        agri: {
+          50: '#f2f8f5',
+          100: '#e1f0e8',
+          200: '#c4e2d3',
+          800: '#1e4635', // Deep forest green
+          900: '#143024', // Very deep forest green
+        }
+      }
+    },
   },
   plugins: [],
 }
-
