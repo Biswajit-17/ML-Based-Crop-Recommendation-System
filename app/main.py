@@ -12,6 +12,8 @@ import json
 import datetime
 from openai import OpenAI
 from dotenv import load_dotenv
+from typing import Optional
+from contextlib import asynccontextmanager
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint  # noqa: F401 — kept for optional HF translation pipeline
 
 # Load environment variables 
@@ -30,9 +32,40 @@ if os.getenv("OPENROUTER_API_KEY"):
         }
     )
 
+# Define the global models and dataset
+simulator_model = None
+preprocessor = None
+master_data = None
+crop_max_yields = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global simulator_model, preprocessor, master_data, crop_max_yields
+    try:
+        # Load the models using absolute path resolving from the main.py location
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_path = os.path.join(base_dir, 'models', 'tuned_simulator.joblib')
+        prep_path = os.path.join(base_dir, 'models', 'simulator_preprocessor.joblib')
+        data_path = os.path.join(base_dir, 'data', 'processed', 'master_dataset_clean.csv')
+        
+        simulator_model = joblib.load(model_path)
+        preprocessor = joblib.load(prep_path)
+        
+        # Load dataset to serve historical defaults quickly
+        master_data = pd.read_csv(data_path)
+        
+        # Calculate the 95th percentile (ideal) yield for every crop to use as a baseline
+        crop_max_yields = master_data.groupby('Crop')['Yield (Kg per ha)'].quantile(0.95).to_dict()
+        
+        print("ML Models & Historical Data loaded successfully!")
+    except Exception as e:
+        print(f"Error loading ML Models: {e}")
+    yield
+
 app = FastAPI(
     title="Crop Recommendation API", 
-    description="XGBoost & Gemma powered crop simulation API"
+    description="XGBoost & Gemma powered crop simulation API",
+    lifespan=lifespan
 )
 
 # Setup CORS for the Vite/React frontend
@@ -43,12 +76,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Define the global models and dataset
-simulator_model = None
-preprocessor = None
-master_data = None
-crop_max_yields = {}
 
 # Hardcoded array of all valid crops from training
 ALL_CROPS = ['BARLEY', 'CASTOR', 'CHICKPEA', 'FINGER MILLET', 'GROUNDNUT', 'LINSEED', 'MAIZE', 'PIGEONPEA', 'RAPESEED AND MUSTARD', 'RICE', 'SAFFLOWER', 'SESAMUM', 'SORGHUM', 'SUGARCANE', 'WHEAT', 'SOYABEAN', 'SUNFLOWER', 'COTTON', 'PEARL MILLET']
@@ -141,32 +168,10 @@ class PredictionRequest(BaseModel):
     irrigation_ratio: float
     soil_type: str
     state_name: str
-    district_name: str = None
+    district_name: Optional[str] = None
     language: str = "English"
 
-@app.on_event("startup")
-def load_ml_models():
-    global simulator_model, preprocessor, master_data
-    try:
-        # Load the models using absolute path resolving from the main.py location
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        model_path = os.path.join(base_dir, 'models', 'tuned_simulator.joblib')
-        prep_path = os.path.join(base_dir, 'models', 'simulator_preprocessor.joblib')
-        data_path = os.path.join(base_dir, 'data', 'processed', 'master_dataset_clean.csv')
-        
-        simulator_model = joblib.load(model_path)
-        preprocessor = joblib.load(prep_path)
-        
-        # Load dataset to serve historical defaults quickly
-        master_data = pd.read_csv(data_path)
-        
-        # Calculate the 95th percentile (ideal) yield for every crop to use as a baseline
-        global crop_max_yields
-        crop_max_yields = master_data.groupby('Crop')['Yield (Kg per ha)'].quantile(0.95).to_dict()
-        
-        print("ML Models & Historical Data loaded successfully!")
-    except Exception as e:
-        print(f"Error loading ML Models: {e}")
+
 
 @app.get("/")
 def read_root():
@@ -204,16 +209,16 @@ def get_ui_language(language: str):
             
         # Using the exact LangChain implementation requested
         llm = HuggingFaceEndpoint(
-            repo_id="google/gemma-4-31B-it",
+            model="google/gemma-4-31B-it",
             task="text-generation",
             max_new_tokens=2048,
             temperature=0.1,
-            huggingfacehub_api_token=hf_key   
+            huggingfacehub_api_token=hf_key
         )
         model = ChatHuggingFace(llm=llm)
         
         response = model.invoke(prompt)
-        raw_text = response.content.strip()
+        raw_text = str(response.content).strip()
         
         # Hugging Face API sometimes omits the charset header, causing `requests` to default to latin-1
         # which mangles UTF-8 text into Mojibake. This explicitly fixes it:
@@ -270,7 +275,7 @@ def get_state_districts(state_name: str):
 
 
 @app.get("/api/defaults/{state_name}")
-def get_state_defaults(state_name: str, district: str = None):
+def get_state_defaults(state_name: str, district: Optional[str] = None):
     if master_data is None:
         raise HTTPException(status_code=500, detail="Database not loaded")
         
@@ -411,7 +416,7 @@ def simulate_yield(request: PredictionRequest):
             # Map to local Indian name, or just Title Case the original
             display_name = CROP_DISPLAY_NAMES.get(crop, crop.title())
             
-            results.append((display_name, float(yield_val), float(suitability_score), float(baseline_max)))
+            results.append((display_name, float(yield_val), float(suitability_score), float(baseline_max)))  # type: ignore[arg-type]
             
         # Sort by Suitability Score FIRST (x[2]). 
         # If there is a tie (multiple crops at 100%), break the tie using Raw Yield (x[1])!
