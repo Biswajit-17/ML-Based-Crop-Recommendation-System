@@ -54,7 +54,7 @@ def main():
             ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features)
         ])
 
-    X_processed = preprocessor.fit_transform(X)
+    X_processed = np.asarray(preprocessor.fit_transform(X))  # sparse_output=False → dense; asarray() is a no-op here
     
     # Save the preprocessor so Phase 5 web app can use it
     joblib.dump(preprocessor, 'models/simulator_preprocessor.joblib')
@@ -107,7 +107,7 @@ def main():
     print("\n[STEP 4] Evaluating Final Simulation Math on Hidden Test Set...")
     best_simulator = random_search.best_estimator_
     
-    y_pred = best_simulator.predict(X_test)
+    y_pred = best_simulator.predict(X_test)  # type: ignore[union-attr]
     
     r2 = r2_score(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
@@ -139,7 +139,7 @@ def main():
     
     # Process through our pipeline and predict
     sim_processed = preprocessor.transform(sim_data)
-    sim_yields = best_simulator.predict(sim_processed)
+    sim_yields = best_simulator.predict(sim_processed)  # type: ignore[union-attr]
     
     # Zip together and rank
     results = list(zip(all_crops, sim_yields))
