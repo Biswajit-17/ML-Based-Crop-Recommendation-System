@@ -71,7 +71,8 @@ The dataset was deliberately trimmed to the modern era (post-2000) to remove out
 
 ### Phase 5: Web Application, GenAI & The Suitability Score
 - **FastAPI Backend:** A high-performance Python API orchestrating ML predictions, live climate fetching, and AI advisory generation.
-- **The Suitability Score:** A pure Regressor suffers from "Biomass Bias" (Sugarcane at 80,000 kg/ha always beats Wheat at 5,000 kg/ha). The backend calculates each crop's **95th Percentile Maximum Yield** from the 2000–2017 dataset and computes `(Predicted Yield / Historical Max) × 100` as a normalized Suitability Percentage.
+- **The Suitability Score (Bayesian Prior):** A pure ML Regressor suffers from "Biomass Bias" (Sugarcane always beats Wheat) and "Out-of-Distribution Hallucinations" (blindly over-predicting non-native crops). To fix this, the backend calculates a **Relative Suitability Score** by dividing predicted yield by the crop's Global 95th Percentile baseline, and mathematically penalizing it using a **Bayesian Acreage Prior** (a log1p normalization of the crop's historically planted area in the selected state). This forces the ML engine to scientifically cross-validate its predictions against real-world ecological viability without using hardcoded rules.
+- **Adaptive UI & Dark Mode:** A premium, responsive interface featuring global class-based Dark Mode integrated with TailwindCSS, dynamically styled native webkit scrollbars, and seamless color transitions.
 - **Live Climate (10-Year Rolling Window):** The backend fetches daily precipitation data from the Open-Meteo Archive API for a dynamic 10-year window ending at the last complete calendar year (e.g., 2016–2025 in 2026). This window advances automatically each year with no code changes.
 - **Dual-Mode Soil Input (Trust but Verify):** Users can either use historical district-average NPK values or manually enter their own values from a Soil Health Card for more precise simulation.
 - **Season-Aware Crop Badges:** Each recommendation card displays an advisory badge showing whether the crop is in its optimal planting season, using a three-tier classification (strict Kharif/Rabi crops vs. multi-season flexible crops) based on ICAR crop calendar guidelines.
@@ -123,7 +124,7 @@ ML Based Crop Recommendation System/
 | 3 | EDA on modern-era dataset | ✅ Complete |
 | 4 | XGBoost Yield Simulator (retrained, regularized) | ✅ Complete |
 | 5 | FastAPI + React Web App + GenAI + Multilingual | ✅ Complete |
-| 6 | Documentation & Deployment | 🔄 In Progress |
+| 6 | Documentation & Deployment | ✅ Complete |
 
 ---
 
