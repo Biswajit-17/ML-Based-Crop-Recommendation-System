@@ -1,5 +1,7 @@
 /** @type {import('tailwindcss').Config} */
+// Trigger Vite rebuild for darkMode
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",

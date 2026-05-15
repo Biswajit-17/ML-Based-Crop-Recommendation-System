@@ -62,36 +62,74 @@ const getSeasonBadge = (cropName) => {
   const key = cropName.toUpperCase();
   const info = CROP_SEASONS[key];
   const currentSeason = getCurrentSeason();
+  const currentMonths = SEASON_MONTHS[currentSeason];
   if (!info) return null;
+
   if (info.tier === 3) {
-    return { icon: '🗺️', title: 'Multi-season', sub: 'Flexible planting', cls: 'text-slate-700 bg-slate-50 border-slate-200' };
+    return {
+      dot: 'bg-slate-400',
+      title: 'Flexible Planting',
+      window: 'Can be grown year-round',
+      hint: `Suitable for the current ${currentSeason} season`,
+      cls: 'text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
+      titleCls: 'text-slate-700 dark:text-slate-200',
+      hintCls: 'text-slate-500 dark:text-slate-400',
+    };
   }
+
   const months = SEASON_MONTHS[info.season] || info.season;
+
   if (info.season === currentSeason) {
-    return { icon: '🌱', title: 'Optimal Now', sub: months, cls: 'text-emerald-800 bg-emerald-50 border-emerald-200' };
+    return {
+      dot: 'bg-emerald-500',
+      title: 'Plant Now',
+      window: `${info.season} season · ${months}`,
+      hint: 'This is the right time to sow',
+      cls: 'text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200',
+      titleCls: 'text-emerald-800 dark:text-emerald-400',
+      hintCls: 'text-emerald-600 dark:text-emerald-400',
+    };
   }
-  return { icon: '📅', title: `${info.season} Crop`, sub: months, cls: 'text-amber-800 bg-amber-50 border-amber-200' };
+
+  const nextSeasonStart = {
+    'Kharif': 'June',
+    'Rabi': 'November',
+    'Zaid': 'April',
+  };
+  return {
+    dot: 'bg-slate-400',
+    title: 'Off-Season',
+    window: `Best in ${info.season} (${months})`,
+    hint: `Sow from ${nextSeasonStart[info.season] || info.season}`,
+    cls: 'text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
+    titleCls: 'text-slate-700 dark:text-slate-200',
+    hintCls: 'text-slate-500 dark:text-slate-400',
+  };
 };
 
 const SliderInput = ({ label, name, value, min, max, step, unit, onChange }) => (
-  <div className="space-y-1">
+  <div className="space-y-1.5">
     <div className="flex justify-between items-center">
-      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</label>
-      <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0 ml-2">
-        {value} {unit}
-      </span>
+      <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{label}</label>
+      <div className="flex items-center gap-1 shrink-0 ml-2">
+        <input
+          type="number" name={name} value={value} onChange={onChange} min={min} max={max}
+          className="w-14 text-right text-[11px] font-mono font-bold text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded border border-emerald-200 outline-none focus:ring-1 focus:ring-emerald-800"
+        />
+        <span className="text-[10px] font-bold text-slate-400">{unit}</span>
+      </div>
     </div>
     <input
       type="range" name={name} min={min} max={max} step={step} value={value}
       onChange={onChange}
-      className="w-full h-1 bg-slate-200 rounded-full appearance-none cursor-pointer"
-      style={{ accentColor: '#065f46' }}
+      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-emerald-800/20 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-emerald-800 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-sm [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-emerald-800 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:shadow-sm"
     />
   </div>
 );
 
 export default function App() {
   const [lang, setLang] = useState("English");
+  const [darkMode, setDarkMode] = useState(false);
   const [languageSelected, setLanguageSelected] = useState(false);
   const [uiDict, setUiDict] = useState(null);
   const [loadingUi, setLoadingUi] = useState(false);
@@ -117,6 +155,22 @@ export default function App() {
   const [error, setError] = useState("");
 
   const t = uiDict || {};
+
+  useEffect(() => {
+    // Attempt to load Indian states from GeoJSON to populate district dropdowns later
+    // In a real app this would be dynamically fetched
+  }, []);
+
+  // Apply dark mode class to html element
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.backgroundColor = '#0f172a'; // slate-900
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.style.backgroundColor = '#f4f7f6'; // app base off-white
+    }
+  }, [darkMode]);
 
   useEffect(() => {
     let cancel = false;
@@ -161,7 +215,7 @@ export default function App() {
           irrigation_ratio: data.irrigation_ratio_avg
         }));
       } catch (err) {
-        setError("⚠️ Connection error. Is the backend running?");
+        setError("Connection error. Is the backend running?");
       } finally {
         if (!cancel) setLoadingClimate(false);
       }
@@ -188,7 +242,7 @@ export default function App() {
       });
       if (!res.ok) throw new Error("Simulation failed.");
       setResults(await res.json());
-    } catch (err) { setError(err.message); } 
+    } catch (err) { setError(err.message); }
     finally { setSimulating(false); }
   };
 
@@ -200,43 +254,37 @@ export default function App() {
       if (!res.ok) throw new Error("Translation failed");
       setUiDict(await res.json());
       setLanguageSelected(true);
-    } catch (err) { console.error("Translation failed: ", err); setLanguageSelected(true); } 
+    } catch (err) { console.error("Translation failed: ", err); setLanguageSelected(true); }
     finally { setLoadingUi(false); }
   };
 
-  const getRankConfig = () => [
-    { label: t.rank1 || "1st Choice", bar: "bg-amber-400" },
-    { label: t.rank2 || "2nd Choice", bar: "bg-slate-400" },
-    { label: t.rank3 || "3rd Choice", bar: "bg-orange-500" },
-    { label: t.rank4 || "4th Choice", bar: "bg-emerald-600" },
-    { label: t.rank5 || "5th Choice", bar: "bg-cyan-600" },
-  ];
+
 
   if (!languageSelected) {
     return (
-      <div className="min-h-screen bg-[#f4f7f6] flex items-center justify-center p-6 font-sans">
-        <div className="bg-white border border-slate-200 rounded-2xl p-10 max-w-md w-full shadow-xl text-center">
-          <div className="w-16 h-16 bg-emerald-50 text-emerald-800 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-sm border border-emerald-100">🌱</div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">HarvestML</h1>
-          <p className="text-sm font-medium text-slate-500 mb-8">Please select your preferred interface language to continue.</p>
-          
+      <div className="min-h-screen bg-[#f4f7f6] dark:bg-slate-900 flex items-center justify-center p-6 font-sans">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-10 max-w-md w-full shadow-xl text-center">
+          <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-sm border border-emerald-100">🌱</div>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">HarvestML</h1>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-8">Please select your preferred interface language to continue.</p>
+
           {loadingUi ? (
             <div className="py-8 space-y-4 flex flex-col items-center">
-              <svg className="w-8 h-8 animate-spin text-emerald-800" fill="none" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 animate-spin text-emerald-800 dark:text-emerald-400" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
               </svg>
-              <p className="text-emerald-800 font-bold animate-pulse">Initializing Interface...</p>
+              <p className="text-emerald-800 dark:text-emerald-400 font-bold animate-pulse">Initializing Interface...</p>
             </div>
           ) : (
             <div className="space-y-5 text-left">
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Select Language</label>
                 <div className="relative">
-                  <select 
-                    value={lang} 
+                  <select
+                    value={lang}
                     onChange={(e) => setLang(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-bold px-4 py-3.5 rounded-xl outline-none focus:ring-2 focus:ring-emerald-800 appearance-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-bold px-4 py-3.5 rounded-xl outline-none focus:ring-2 focus:ring-emerald-800 appearance-none"
                   >
                     <option value="English">English</option>
                     <option value="Hindi">Hindi (हिंदी)</option>
@@ -251,12 +299,12 @@ export default function App() {
                     <option value="Odia">Odia (ଓଡ଼ିଆ)</option>
                     <option value="Punjabi">Punjabi (ਪੰਜਾਬੀ)</option>
                   </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 dark:text-slate-400">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
                   </div>
                 </div>
               </div>
-              
+
               <div className="pt-2">
                 <button onClick={() => handleLanguageSelect(lang)} className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 rounded-xl shadow-md transition-all">
                   Launch Platform
@@ -270,93 +318,114 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#f4f7f6] text-slate-800 font-sans overflow-hidden">
-      
+    <div className="flex h-screen bg-[#f4f7f6] dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans overflow-hidden">
+
       {/* ─── SIDEBAR (Data Input) ─── */}
-      <aside className="w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm z-10 shrink-0">
-        
+      <aside className="w-[22rem] bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col shadow-sm z-10 shrink-0">
+
         {/* Branding */}
-        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-emerald-800 text-white flex items-center justify-center text-sm shadow-sm shrink-0">🌱</div>
+        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-800 text-white flex items-center justify-center text-sm shadow-sm shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+          </div>
           <div>
-            <h1 className="font-black text-xl tracking-tight text-slate-900 leading-none">HarvestML</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">AI Yield Simulator</p>
+            <h1 className="font-black text-xl tracking-tight text-slate-900 dark:text-white leading-none">HarvestML</h1>
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">AI Yield Simulator</p>
           </div>
         </div>
 
+        {/* Top Action */}
+        <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+          <button onClick={handleSimulate} disabled={simulating || loadingClimate} className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 px-4 rounded-xl shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 text-sm uppercase tracking-wider">
+            {simulating ? <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> : null}
+            {simulating ? "Generating..." : "Generate Forecast"}
+          </button>
+        </div>
+
         {/* Scrollable Form */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-          
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+
           {/* Section: Location */}
           <section>
-            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
               <span className="w-4 h-px bg-slate-200"></span> Location
             </h2>
             <div className="space-y-3">
-              <div>
-                <select name="state_name" value={formData.state_name} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 text-sm font-semibold focus:ring-2 focus:ring-emerald-800 focus:border-emerald-800 outline-none truncate">
+              <div className="relative">
+                <select name="state_name" value={formData.state_name} onChange={handleChange} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-slate-900 dark:text-white text-sm font-semibold hover:border-slate-300 focus:ring-2 focus:ring-emerald-800 focus:border-emerald-800 outline-none truncate appearance-none transition-colors">
                   {STATES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
+                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"><svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></div>
               </div>
               {districtsList.length > 0 && (
-                <div>
-                  <select name="district_name" value={formData.district_name} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 text-sm font-semibold focus:ring-2 focus:ring-emerald-800 focus:border-emerald-800 outline-none truncate">
+                <div className="relative">
+                  <select name="district_name" value={formData.district_name} onChange={handleChange} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-slate-900 dark:text-white text-sm font-semibold hover:border-slate-300 focus:ring-2 focus:ring-emerald-800 focus:border-emerald-800 outline-none truncate appearance-none transition-colors">
                     {districtsList.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"><svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></div>
                 </div>
               )}
             </div>
           </section>
+
+          <hr className="border-slate-100 dark:border-slate-700" />
 
           {/* Section: Climate */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <span className="w-4 h-px bg-slate-200"></span> Climate Data
               </h2>
               {loadingClimate ? (
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0"></span>
+                <span className="w-2 h-2 rounded-full bg-slate-400 animate-ping shrink-0"></span>
               ) : climate && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
               )}
             </div>
-            
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+
+            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
               {loadingClimate || !climate ? (
-                <div className="h-12 flex items-center justify-center text-xs text-slate-400 font-semibold animate-pulse">Syncing satellite data...</div>
+                <div className="h-12 flex items-center justify-center text-xs text-slate-400 font-semibold animate-pulse">Syncing API data...</div>
               ) : (
                 <div className="flex justify-between text-center divide-x divide-slate-200">
                   <div className="px-2 w-1/3">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase truncate">Annual</div>
-                    <div className="text-sm font-black text-emerald-800 truncate">{climate.annual}<span className="text-[9px] text-slate-500 ml-0.5">mm</span></div>
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">Annual</div>
+                    <div className="text-sm font-black text-emerald-800 dark:text-emerald-400 truncate">{climate.annual}<span className="text-[9px] text-slate-500 dark:text-slate-400 ml-0.5">mm</span></div>
                   </div>
                   <div className="px-2 w-1/3">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase truncate">Kharif</div>
-                    <div className="text-sm font-black text-emerald-800 truncate">{climate.kharif}<span className="text-[9px] text-slate-500 ml-0.5">mm</span></div>
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">Kharif</div>
+                    <div className="text-sm font-black text-emerald-800 dark:text-emerald-400 truncate">{climate.kharif}<span className="text-[9px] text-slate-500 dark:text-slate-400 ml-0.5">mm</span></div>
                   </div>
                   <div className="px-2 w-1/3">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase truncate">Rabi</div>
-                    <div className="text-sm font-black text-emerald-800 truncate">{climate.rabi}<span className="text-[9px] text-slate-500 ml-0.5">mm</span></div>
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">Rabi</div>
+                    <div className="text-sm font-black text-emerald-800 dark:text-emerald-400 truncate">{climate.rabi}<span className="text-[9px] text-slate-500 dark:text-slate-400 ml-0.5">mm</span></div>
                   </div>
                 </div>
               )}
             </div>
           </section>
 
+          <hr className="border-slate-100 dark:border-slate-700" />
+
           {/* Section: Soil */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <span className="w-4 h-px bg-slate-200"></span> Soil Chemistry
               </h2>
             </div>
-            <select name="soil_type" value={formData.soil_type} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 text-sm font-semibold focus:ring-2 focus:ring-emerald-800 focus:border-emerald-800 outline-none mb-3 truncate">
-              {SOIL_TYPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+            <div className="relative mb-3">
+              <select name="soil_type" value={formData.soil_type} onChange={handleChange} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-slate-900 dark:text-white text-sm font-semibold hover:border-slate-300 focus:ring-2 focus:ring-emerald-800 focus:border-emerald-800 outline-none truncate appearance-none transition-colors">
+                {SOIL_TYPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"><svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></div>
+            </div>
 
-            <div className="flex bg-slate-100 p-0.5 rounded-lg mb-4 border border-slate-200">
-              <button onClick={() => setSoilInputMode('estimate')} className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all ${soilInputMode === 'estimate' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500'}`}>Est. Average</button>
-              <button onClick={() => setSoilInputMode('manual')} className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all ${soilInputMode === 'manual' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500'}`}>Custom Input</button>
+            <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg mb-4 border border-slate-200 dark:border-slate-700">
+              <button onClick={() => setSoilInputMode('estimate')} className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all ${soilInputMode === 'estimate' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'}`}>Est. Average</button>
+              <button onClick={() => setSoilInputMode('manual')} className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all ${soilInputMode === 'manual' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'}`}>Custom Input</button>
             </div>
 
             {soilInputMode === 'estimate' ? (
@@ -369,52 +438,66 @@ export default function App() {
               <div className="space-y-3">
                 {['n', 'p', 'k'].map(key => (
                   <div key={key} className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-slate-600 uppercase w-6">{key}</label>
-                    <input type="number" name={key} value={formData[key]} min={0} max={300} onChange={handleChange} className="flex-1 bg-slate-50 border border-slate-200 text-slate-900 text-sm font-mono font-bold px-2 py-1.5 rounded-lg outline-none focus:border-emerald-800 focus:ring-1 focus:ring-emerald-800" />
-                    <span className="text-[10px] text-slate-400 font-bold shrink-0">kg/ha</span>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase w-6">{key}</label>
+                    <input type="number" name={key} value={formData[key]} min={0} max={300} onChange={handleChange} className="flex-1 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-sm font-mono font-bold px-2 py-1.5 rounded-lg outline-none hover:border-slate-300 focus:border-emerald-800 focus:ring-1 focus:ring-emerald-800 transition-colors" />
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold shrink-0">kg/ha</span>
                   </div>
                 ))}
               </div>
             )}
           </section>
 
-        </div>
+          <div className="pt-4 pb-2 flex flex-col items-center justify-center gap-1 opacity-60">
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">Source: ICRISAT (2000-2017)</p>
+            <p className="text-[9px] text-slate-400 font-medium">Last updated: May 15, 2026</p>
+          </div>
 
-        {/* Footer Action */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50">
-          <button onClick={handleSimulate} disabled={simulating || loadingClimate} className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 px-4 rounded-xl shadow-[0_4px_10px_rgba(6,95,70,0.2)] transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 text-sm uppercase tracking-wider">
-            {simulating ? <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> : null}
-            {simulating ? "Generating..." : "Generate Forecast"}
-          </button>
         </div>
       </aside>
 
       {/* ─── MAIN CONTENT (Dashboard) ─── */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        
+
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
+        <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-4">
-            <h2 className="font-bold text-slate-800">Analytics Dashboard</h2>
-            {loadingUi && <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 animate-pulse">Translating...</span>}
+            <h2 className="font-bold text-slate-800 dark:text-slate-100">Analytics Dashboard</h2>
+            {loadingUi && <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded border border-emerald-100 animate-pulse">Translating...</span>}
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-slate-400 uppercase">Language:</span>
-            
-            <select value={lang} onChange={(e) => handleLanguageSelect(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg outline-none cursor-pointer hover:border-slate-300">
-              <option value="English">🇬🇧 English</option>
-              <option value="Hindi">🇮🇳 Hindi</option>
-              <option value="Marathi">🇮🇳 Marathi</option>
-              <option value="Telugu">🇮🇳 Telugu</option>
-              <option value="Tamil">🇮🇳 Tamil</option>
-              <option value="Kannada">🇮🇳 Kannada</option>
-              <option value="Gujarati">🇮🇳 Gujarati</option>
-              <option value="Bengali">🇮🇳 Bengali</option>
-              <option value="Assamese">🇮🇳 Assamese</option>
-              <option value="Malayalam">🇮🇳 Malayalam</option>
-              <option value="Odia">🇮🇳 Odia</option>
-              <option value="Punjabi">🇮🇳 Punjabi</option>
-            </select>
+            <button 
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+              title="Toggle Dark Mode"
+            >
+              {darkMode ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+              )}
+            </button>
+            <div className="relative">
+              <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+              </svg>
+              <select value={lang} onChange={(e) => handleLanguageSelect(e.target.value)} className="pl-8 pr-8 py-1.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg outline-none cursor-pointer hover:border-slate-300 transition-colors appearance-none">
+                <option value="English">English</option>
+                <option value="Hindi">Hindi</option>
+                <option value="Marathi">Marathi</option>
+                <option value="Telugu">Telugu</option>
+                <option value="Tamil">Tamil</option>
+                <option value="Kannada">Kannada</option>
+                <option value="Gujarati">Gujarati</option>
+                <option value="Bengali">Bengali</option>
+                <option value="Assamese">Assamese</option>
+                <option value="Malayalam">Malayalam</option>
+                <option value="Odia">Odia</option>
+                <option value="Punjabi">Punjabi</option>
+              </select>
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -423,18 +506,21 @@ export default function App() {
           <div className="max-w-4xl mx-auto space-y-6">
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl text-sm font-bold shadow-sm">
-                🚨 {error}
+              <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl text-sm font-bold shadow-sm flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                {error}
               </div>
             )}
 
             {/* Empty State */}
             {!results && !simulating && !error && (
               <div className="mt-20 flex flex-col items-center justify-center text-center">
-                <div className="w-24 h-24 bg-white border border-slate-200 shadow-sm rounded-full flex items-center justify-center text-4xl mb-6">📊</div>
-                <h3 className="text-2xl font-black text-slate-800 mb-2">Engine Ready</h3>
-                <p className="text-slate-500 max-w-sm leading-relaxed font-medium">
-                  Adjust the farm parameters in the left sidebar and click "Run Simulation" to generate an AI-powered yield forecast.
+                <div className="w-24 h-24 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-full flex items-center justify-center mb-6">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">Engine Ready</h3>
+                <p className="text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed font-medium">
+                  Adjust the farm parameters in the left sidebar and click "Generate Forecast" to generate an AI-powered yield forecast.
                 </p>
               </div>
             )}
@@ -442,82 +528,145 @@ export default function App() {
             {/* Skeleton Loading */}
             {simulating && (
               <div className="space-y-4 animate-pulse">
-                <div className="h-32 bg-white border border-slate-200 rounded-2xl shadow-sm" />
-                <div className="h-20 bg-white border border-slate-200 rounded-2xl shadow-sm" />
-                <div className="h-20 bg-white border border-slate-200 rounded-2xl shadow-sm" />
-                <div className="h-20 bg-white border border-slate-200 rounded-2xl shadow-sm" />
+                <div className="h-32 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm" />
+                <div className="h-20 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm" />
+                <div className="h-20 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm" />
+                <div className="h-20 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm" />
               </div>
             )}
 
             {/* Results Render */}
             {results && !simulating && (
               <>
+                {/* Forecast Confidence Metrics */}
+                {results.metadata && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-center">
+                      <div className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1.5">Prediction Confidence</div>
+                      <div className={`text-lg font-black tracking-tight mb-1 ${results.metadata.confidence_level === 'High' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}`}>{results.metadata.confidence_level}</div>
+                      <p className="text-[10px] text-slate-400 font-medium leading-snug pr-4">Robustness based on localized soil matches and historical yield thresholds.</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-center">
+                      <div className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1.5">Rainfall Variability</div>
+                      <div className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight mb-1">{results.metadata.rainfall_variability}</div>
+                      <p className="text-[10px] text-slate-400 font-medium leading-snug pr-4">Historical district deviation tracking how unpredictable the monsoon is here.</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Executive Summary (AI Report) */}
-                <div className="bg-emerald-800 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">🤖</div>
-                  <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full"></span> Executive Summary
+                <div className="bg-emerald-50/50 dark:bg-emerald-900/20 border-l-[6px] border-emerald-700 rounded-r-2xl p-6 mb-8 shadow-sm">
+                  <h3 className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-widest mb-3">
+                    Agronomic Insights
                   </h3>
-                  <div className="text-sm text-slate-100 leading-relaxed space-y-3 font-medium relative z-10 max-w-3xl">
-                    {results.ai_advisory.split('\n').filter(p => p.trim()).map((p, i) => (
-                      <p key={i}>{p}</p>
-                    ))}
+                  <div className="text-[13px] text-slate-800 dark:text-slate-100 leading-snug font-medium">
+                    <ul className="space-y-2.5 list-disc pl-4 marker:text-emerald-500">
+                      {results.ai_advisory.split('\n').filter(p => p.trim()).map((p, i) => (
+                        <li key={i} className="pl-1">{p}</li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
 
                 {/* Analytical Grid Label */}
                 <div className="flex items-center justify-between pt-4">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Yield Forecast Rankings</h3>
+                  <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Yield Forecast Rankings</h3>
+                  {/* Current Season Chip */}
+                  {(() => {
+                    const s = getCurrentSeason();
+                    const seasonStyles = {
+                      'Kharif': { bg: 'bg-cyan-50 border-cyan-200 text-cyan-800', dot: 'bg-cyan-500', label: 'Kharif Season (Jun–Oct)' },
+                      'Rabi': { bg: 'bg-blue-50 border-blue-200 text-blue-800', dot: 'bg-blue-500', label: 'Rabi Season (Nov–Mar)' },
+                      'Zaid': { bg: 'bg-yellow-50 border-yellow-200 text-yellow-800', dot: 'bg-yellow-500', label: 'Zaid Season (Apr–May)' },
+                    };
+                    const style = seasonStyles[s] || seasonStyles['Zaid'];
+                    return (
+                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white bg-slate-800 px-3 py-1.5 rounded-lg shadow-sm">
+                        <span className={`w-1.5 h-1.5 rounded-full ${style.dot} animate-pulse`}></span>
+                        Now: {style.label}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Horizontal Crop Cards */}
                 <div className="space-y-3">
                   {results.recommendations.map((rec, i) => {
-                    const cfg = getRankConfig()[i];
-                    const badge = getSeasonBadge(rec.crop) || { icon: '', title: 'Unknown', cls: 'bg-slate-100 border-slate-200 text-slate-500' };
-                    
+                    const badge = getSeasonBadge(rec.crop) || { icon: '', title: 'Unknown', cls: 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' };
+                    const isHero = i === 0;
+                    const barColor = rec.suitability_percentage >= 65 ? 'bg-emerald-500' : (rec.suitability_percentage >= 50 ? 'bg-amber-400' : 'bg-slate-300');
+                    const baseYield = Math.round(rec.expected_yield_kg_per_ha);
+                    const yieldRange = `${Math.round(baseYield * 0.95).toLocaleString()} – ${Math.round(baseYield * 1.05).toLocaleString()}`;
+
                     return (
-                      <div key={rec.crop} className="bg-white border border-slate-200 rounded-xl flex items-stretch h-32 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        
+                      <div key={rec.crop} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-stretch overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow min-h-[6rem]">
+
                         {/* 1. Large Distinct Image */}
-                        <div className="w-32 bg-slate-100 relative shrink-0">
-                          <img src={`/crops/${CROP_IMAGES[rec.crop] || 'placeholder.jpg'}`} className="w-full h-full object-cover" />
-                          <div className="absolute top-2 left-2 bg-white/95 backdrop-blur-sm border border-white/50 text-slate-800 text-[10px] font-black px-2 py-0.5 rounded shadow-sm">
+                        <div className={`${isHero ? 'w-48' : 'w-28'} bg-slate-100 dark:bg-slate-700 relative shrink-0`}>
+                          <img src={`/crops/${CROP_IMAGES[rec.crop] || 'placeholder.jpg'}`} className="w-full h-full object-cover min-h-[100px]" />
+                          <div className={`absolute top-3 left-3 bg-white dark:bg-slate-800/95 backdrop-blur-sm border border-white/50 text-slate-800 dark:text-slate-100 font-extrabold px-2.5 py-0.5 rounded shadow-sm ${isHero ? 'text-xs' : 'text-[10px]'}`}>
                             #{i + 1}
                           </div>
                         </div>
 
-                        <div className="flex-1 flex items-center p-4">
+                        <div className={`flex-1 flex items-center ${isHero ? 'p-6 gap-6' : 'p-4 gap-4'}`}>
                           {/* 2. Crop Details */}
-                          <div className="w-[28%] pr-4 shrink-0">
-                            <h4 className="font-black text-slate-900 leading-tight uppercase text-lg truncate">{rec.crop}</h4>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate block">{cfg.label}</span>
+                          <div className="flex-[1] min-w-0">
+                            <h4 className={`font-extrabold text-slate-900 dark:text-white leading-tight capitalize ${isHero ? 'text-xl xl:text-2xl' : 'text-base xl:text-lg'}`}>{rec.crop.toLowerCase()}</h4>
+                            {isHero && <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mt-1 block">Recommended</span>}
                           </div>
 
                           {/* 3. Expected Yield */}
-                          <div className="w-[24%] border-l border-slate-100 pl-5 shrink-0">
-                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5 truncate">Forecast Yield</div>
-                            <div className="text-xl font-black text-emerald-800 truncate">
-                              {rec.expected_yield_kg_per_ha.toLocaleString()} <span className="text-[10px] font-bold text-slate-500 ml-0.5">kg/ha</span>
+                          <div className="flex-[1.2] border-l border-slate-100 dark:border-slate-700 pl-4 sm:pl-6 min-w-0">
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 truncate">Yield Range</div>
+                            <div className={`font-extrabold text-emerald-800 dark:text-emerald-400 tabular-nums tracking-tight whitespace-nowrap ${isHero ? 'text-xl xl:text-2xl' : 'text-lg xl:text-xl'}`}>
+                              {yieldRange}
                             </div>
+                            <div className="text-[10px] font-bold text-slate-400 mt-1">kg/ha <span className="font-medium opacity-75">(±5% est.)</span></div>
                           </div>
 
                           {/* 4. Suitability */}
-                          <div className="w-[24%] border-l border-slate-100 pl-5 shrink-0">
+                          <div className="flex-[1.5] border-l border-slate-100 dark:border-slate-700 pl-4 sm:pl-6 min-w-0">
                             <div className="flex justify-between items-end mb-1.5">
-                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Suitability</span>
-                              <span className="text-xs font-black text-slate-800">{rec.suitability_percentage.toFixed(1)}%</span>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Suitability</span>
+                              <span className={`${isHero ? 'text-sm' : 'text-xs'} font-black text-slate-800 dark:text-slate-100 tabular-nums`}>{rec.suitability_percentage.toFixed(1)}%</span>
                             </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${Math.min(rec.suitability_percentage, 100)}%` }}></div>
+                            <div className={`w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden ${isHero ? 'h-1.5 mb-3' : 'h-1 mb-2'}`}>
+                              <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(rec.suitability_percentage, 100)}%` }}></div>
                             </div>
+                            {isHero ? (
+                              <div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-bold mb-0.5">Recorded best yield</div>
+                                <div className="text-slate-800 dark:text-slate-100 font-black text-sm tabular-nums">
+                                  {rec.max_potential_yield?.toLocaleString() ?? '—'} <span className="text-xs font-medium text-slate-500 dark:text-slate-400">kg/ha</span>
+                                </div>
+                                <div className="text-slate-600 dark:text-slate-300 italic text-[10px] mt-0.5 font-medium leading-tight">
+                                  Source: ICRISAT data (2000-2017)
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex justify-between items-center text-[10px]">
+                                <span className="text-slate-500 dark:text-slate-400 font-bold uppercase truncate pr-2">Best Yield:</span>
+                                <span className="text-slate-700 dark:text-slate-200 font-black tabular-nums shrink-0">{rec.max_potential_yield?.toLocaleString() ?? '—'} kg/ha</span>
+                              </div>
+                            )}
                           </div>
 
                           {/* 5. Season Context */}
-                          <div className="w-[24%] pl-5 flex justify-end shrink-0">
-                            <div className={`px-2 py-1.5 rounded-lg border flex flex-col items-center justify-center w-full text-center ${badge.cls}`}>
-                              <span className="text-[10px] font-bold uppercase tracking-wider truncate w-full">{badge.title}</span>
-                              <span className="text-xs shrink-0 mt-0.5 font-medium">{badge.icon}</span>
+                          <div className="flex-[1.2] pl-2 sm:pl-4 flex justify-end shrink-0 min-w-0">
+                            <div className={`px-3 ${isHero ? 'py-3' : 'py-2'} rounded-lg border flex flex-col gap-1 w-full max-w-[160px] ${badge.cls}`}>
+                              <span className={`text-[10px] font-black uppercase tracking-wider leading-tight flex items-center gap-1.5 ${badge.titleCls} truncate`}>
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${badge.dot}`}></span>
+                                {badge.title}
+                              </span>
+                              <span className="text-[9px] font-bold leading-tight opacity-90 truncate">
+                                {badge.window}
+                              </span>
+                              {isHero && badge.hint && (
+                                <span className={`text-[9px] font-semibold leading-tight italic mt-0.5 line-clamp-2 ${badge.hintCls}`}>
+                                  {badge.hint}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -526,6 +675,8 @@ export default function App() {
                     );
                   })}
                 </div>
+
+
               </>
             )}
 
