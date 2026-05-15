@@ -60,17 +60,31 @@ The gap between Train R² (95.30%) and Test R² (87.95%) confirms the model gene
 
 ---
 
-## 5. The Suitability Score System
+## 5. The Suitability Score & Bayesian Inference
 
-A pure Regressor suffers from "Biomass Bias": Sugarcane produces ~80,000 kg/ha even in mediocre conditions, which would always beat a perfect Wheat crop at ~5,000 kg/ha.
+Using a pure Regressor creates two major mathematical exploits that must be solved before deployment:
 
-**The Fix:** At startup, the backend scans the full dataset and calculates the **95th Percentile Yield** for every crop individually. This represents an "ideal historical harvest" for that specific crop.
+### Exploit A: The "Biomass Bias"
+Sugarcane produces ~80,000 kg/ha even in mediocre conditions, which mathematically crushes a perfect Wheat crop at ~5,000 kg/ha.
+**The Fix:** At startup, the backend calculates the **Global 95th Percentile Yield** for every crop individually to represent its biological limit. We divide the Predicted Yield by this baseline to get a "Biological Potential Score" (e.g. 75% of perfect).
+
+### Exploit B: Out-of-Distribution (OOD) Extrapolation
+XGBoost cannot extrapolate. If a user inputs 1,700mm Rainfall for a dryland crop like Kusum (Safflower), the model looks at its training data, realizes it has never seen Kusum grown in high rainfall, and simply defaults to predicting Kusum's global average yield. Because Kusum's biological limit is so low, this "blind guess" artificially inflates its Biological Potential Score to near 100%, allowing it to wrongly beat well-understood native crops.
+
+**The Fix: The Bayesian Acreage Prior**
+To solve this without hardcoding agronomic rules, we rely on the collective wisdom of millions of farmers over the 17-year dataset using a Bayesian Prior. 
+During simulation, the backend queries the historical `'Area (1000 ha)'` planted for every crop in the selected State. 
+We calculate a data-driven penalty:
+```python
+Acreage_Weight = log1p(Crop_Average_State_Area) / log1p(Max_State_Area)
+```
+- **Staple Crops (e.g., Rice in Odisha):** Their massive acreage results in a mathematical weight of `1.0`.
+- **OOD Crops (e.g., Kusum in Odisha):** Their near-zero acreage plunges their mathematical weight to `0.03`.
 
 ```
-Suitability Score = (Predicted Yield / 95th Percentile Baseline) × 100
+Final Score = (Predicted Yield / Global 95th Percentile) * Acreage_Weight
 ```
-
-This normalizes crops against their own genetic potential rather than against each other, allowing Sesamum and Sugarcane to compete fairly.
+This forces the AI to cross-validate its Yield Prediction against Historical Ecological Viability, completely neutralizing OOD hallucinations.
 
 ---
 
