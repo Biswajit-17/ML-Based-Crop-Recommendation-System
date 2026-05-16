@@ -8,13 +8,13 @@ const STATES = [
 ];
 
 const SOIL_TYPES = [
-  { label: "Black Soil (Vertisols)", value: "VERTISOLS" },
-  { label: "Red Soil (Alfisols)", value: "ALFISOLS" },
-  { label: "Desert Soil (Aridisols)", value: "ARIDISOLS" },
-  { label: "Alluvial Soil (Entisols)", value: "ENTISOLS" },
-  { label: "Forest Soil (Udalfs)", value: "UDALFS" },
-  { label: "Sandy Soil (Psamments)", value: "PSAMMENTS" },
-  { label: "Young Soil (Inceptisols)", value: "INCEPTISOLS" }
+  { key: "blackSoil", label: "Black Soil (Vertisols)", value: "VERTISOLS" },
+  { key: "redSoil", label: "Red Soil (Alfisols)", value: "ALFISOLS" },
+  { key: "desertSoil", label: "Desert Soil (Aridisols)", value: "ARIDISOLS" },
+  { key: "alluvialSoil", label: "Alluvial Soil (Entisols)", value: "ENTISOLS" },
+  { key: "forestSoil", label: "Forest Soil (Udalfs)", value: "UDALFS" },
+  { key: "sandySoil", label: "Sandy Soil (Psamments)", value: "PSAMMENTS" },
+  { key: "youngSoil", label: "Young Soil (Inceptisols)", value: "INCEPTISOLS" }
 ];
 
 const CROP_IMAGES = {
@@ -25,6 +25,28 @@ const CROP_IMAGES = {
   "Rice": "rice.jpg", "Kusum": "safflower.jpg", "Til": "sesamum.jpg",
   "Jowar": "sorghum.jpg", "Soyabean": "soyabean.jpg", "Sugarcane": "sugarcane.jpg",
   "Sunflower": "sunflower.jpg", "Wheat": "wheat.jpg",
+};
+
+const CROP_TRANSLATION_KEYS = {
+  "Barley": "cropBarley",
+  "Castor": "cropCastor",
+  "Chickpea": "cropChickpea",
+  "Cotton": "cropCotton",
+  "Ragi": "cropRagi",
+  "Groundnut": "cropGroundnut",
+  "Flaxseed / Alsi": "cropFlaxseedAlsi",
+  "Corn": "cropCorn",
+  "Bajra": "cropBajra",
+  "Tur Dal / Arhar": "cropTurDalArhar",
+  "Mustard / Sarson": "cropMustardSarson",
+  "Rice": "cropRice",
+  "Kusum": "cropKusum",
+  "Til": "cropTil",
+  "Jowar": "cropJowar",
+  "Soyabean": "cropSoyabean",
+  "Sugarcane": "cropSugarcane",
+  "Sunflower": "cropSunflower",
+  "Wheat": "cropWheat",
 };
 
 const CROP_SEASONS = {
@@ -58,19 +80,20 @@ const SEASON_MONTHS = {
   'Zaid': 'Apr-May',
 };
 
-const getSeasonBadge = (cropName) => {
+const getSeasonBadge = (cropName, tr) => {
   const key = cropName.toUpperCase();
   const info = CROP_SEASONS[key];
   const currentSeason = getCurrentSeason();
+  const currentSeasonLabel = tr(currentSeason.toLowerCase(), currentSeason);
   const currentMonths = SEASON_MONTHS[currentSeason];
   if (!info) return null;
 
   if (info.tier === 3) {
     return {
       dot: 'bg-slate-400',
-      title: 'Flexible Planting',
-      window: 'Can be grown year-round',
-      hint: `Suitable for the current ${currentSeason} season`,
+      title: tr('flexiblePlanting', 'Flexible Planting'),
+      window: tr('canBeGrownYearRound', 'Can be grown year-round'),
+      hint: tr('suitableForCurrentSeason', 'Suitable for the current {season} season').replace('{season}', currentSeasonLabel),
       cls: 'text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
       titleCls: 'text-slate-700 dark:text-slate-200',
       hintCls: 'text-slate-500 dark:text-slate-400',
@@ -78,13 +101,14 @@ const getSeasonBadge = (cropName) => {
   }
 
   const months = SEASON_MONTHS[info.season] || info.season;
+  const seasonLabel = tr(info.season.toLowerCase(), info.season);
 
   if (info.season === currentSeason) {
     return {
       dot: 'bg-emerald-500',
-      title: 'Plant Now',
-      window: `${info.season} season · ${months}`,
-      hint: 'This is the right time to sow',
+      title: tr('plantNow', 'Plant Now'),
+      window: `${seasonLabel} · ${months}`,
+      hint: tr('rightTimeToSow', 'This is the right time to sow'),
       cls: 'text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200',
       titleCls: 'text-emerald-800 dark:text-emerald-400',
       hintCls: 'text-emerald-600 dark:text-emerald-400',
@@ -98,9 +122,9 @@ const getSeasonBadge = (cropName) => {
   };
   return {
     dot: 'bg-slate-400',
-    title: 'Off-Season',
-    window: `Best in ${info.season} (${months})`,
-    hint: `Sow from ${nextSeasonStart[info.season] || info.season}`,
+    title: tr('offSeason', 'Off-Season'),
+    window: tr('bestInSeason', 'Best in {season} ({months})').replace('{season}', seasonLabel).replace('{months}', months),
+    hint: tr('sowFrom', 'Sow from {month}').replace('{month}', nextSeasonStart[info.season] || info.season),
     cls: 'text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
     titleCls: 'text-slate-700 dark:text-slate-200',
     hintCls: 'text-slate-500 dark:text-slate-400',
@@ -155,6 +179,8 @@ export default function App() {
   const [error, setError] = useState("");
 
   const t = uiDict || {};
+  const tr = (key, fallback) => t[key] || fallback;
+  const cropLabel = (cropName) => tr(CROP_TRANSLATION_KEYS[cropName], cropName);
 
   useEffect(() => {
     // Attempt to load Indian states from GeoJSON to populate district dropdowns later
@@ -177,7 +203,7 @@ export default function App() {
     const fetchDistricts = async () => {
       try {
         const res = await fetch(`http://${window.location.hostname}:8000/api/districts/${formData.state_name}`);
-        if (!res.ok) throw new Error("Could not fetch districts");
+        if (!res.ok) throw new Error(tr("couldNotFetchDistricts", "Could not fetch districts"));
         const data = await res.json();
         if (cancel) return;
         setDistrictsList(data);
@@ -197,7 +223,7 @@ export default function App() {
         let url = `http://${window.location.hostname}:8000/api/defaults/${formData.state_name}`;
         if (formData.district_name) url += `?district=${encodeURIComponent(formData.district_name)}`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error("Could not fetch climate data.");
+        if (!res.ok) throw new Error(tr("couldNotFetchClimate", "Could not fetch climate data."));
         const data = await res.json();
         if (cancel) return;
 
@@ -215,7 +241,7 @@ export default function App() {
           irrigation_ratio: data.irrigation_ratio_avg
         }));
       } catch (err) {
-        setError("Connection error. Is the backend running?");
+        setError(tr("connectionError", "Connection error. Is the backend running?"));
       } finally {
         if (!cancel) setLoadingClimate(false);
       }
@@ -240,7 +266,7 @@ export default function App() {
       const res = await fetch(`http://${window.location.hostname}:8000/api/simulate`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error("Simulation failed.");
+      if (!res.ok) throw new Error(tr("simulationFailed", "Simulation failed."));
       setResults(await res.json());
     } catch (err) { setError(err.message); }
     finally { setSimulating(false); }
@@ -251,7 +277,7 @@ export default function App() {
     setLang(selectedLang); setLoadingUi(true);
     try {
       const res = await fetch(`http://${window.location.hostname}:8000/api/ui-language/${selectedLang}`);
-      if (!res.ok) throw new Error("Translation failed");
+      if (!res.ok) throw new Error(tr("translationFailed", "Translation failed"));
       setUiDict(await res.json());
       setLanguageSelected(true);
     } catch (err) { console.error("Translation failed: ", err); setLanguageSelected(true); }
@@ -265,8 +291,8 @@ export default function App() {
       <div className="min-h-screen bg-[#f4f7f6] dark:bg-slate-900 flex items-center justify-center p-6 font-sans">
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-10 max-w-md w-full shadow-xl text-center">
           <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-sm border border-emerald-100">🌱</div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">HarvestML</h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-8">Please select your preferred interface language to continue.</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">{tr('appName', 'HarvestML')}</h1>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-8">{tr('languagePrompt', 'Please select your preferred interface language to continue.')}</p>
 
           {loadingUi ? (
             <div className="py-8 space-y-4 flex flex-col items-center">
@@ -274,12 +300,12 @@ export default function App() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
               </svg>
-              <p className="text-emerald-800 dark:text-emerald-400 font-bold animate-pulse">Initializing Interface...</p>
+              <p className="text-emerald-800 dark:text-emerald-400 font-bold animate-pulse">{tr('initializingInterface', 'Initializing Interface...')}</p>
             </div>
           ) : (
             <div className="space-y-5 text-left">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Select Language</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{tr('selectLanguage', 'Select Language')}</label>
                 <div className="relative">
                   <select
                     value={lang}
@@ -307,7 +333,7 @@ export default function App() {
 
               <div className="pt-2">
                 <button onClick={() => handleLanguageSelect(lang)} className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 rounded-xl shadow-md transition-all">
-                  Launch Platform
+                  {tr('launchPlatform', 'Launch Platform')}
                 </button>
               </div>
             </div>
@@ -331,8 +357,8 @@ export default function App() {
             </svg>
           </div>
           <div>
-            <h1 className="font-black text-xl tracking-tight text-slate-900 dark:text-white leading-none">HarvestML</h1>
-            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">AI Yield Simulator</p>
+            <h1 className="font-black text-xl tracking-tight text-slate-900 dark:text-white leading-none">{tr('appName', 'HarvestML')}</h1>
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">{tr('appSubtitle', 'AI Yield Simulator')}</p>
           </div>
         </div>
 
@@ -340,7 +366,7 @@ export default function App() {
         <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
           <button onClick={handleSimulate} disabled={simulating || loadingClimate} className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 px-4 rounded-xl shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 text-sm uppercase tracking-wider">
             {simulating ? <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> : null}
-            {simulating ? "Generating..." : "Generate Forecast"}
+            {simulating ? tr('generating', 'Generating...') : tr('generateForecast', 'Generate Forecast')}
           </button>
         </div>
 
@@ -350,7 +376,7 @@ export default function App() {
           {/* Section: Location */}
           <section>
             <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-              <span className="w-4 h-px bg-slate-200"></span> Location
+              <span className="w-4 h-px bg-slate-200"></span> {tr('location', 'Location')}
             </h2>
             <div className="space-y-3">
               <div className="relative">
@@ -376,7 +402,7 @@ export default function App() {
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <span className="w-4 h-px bg-slate-200"></span> Climate Data
+                <span className="w-4 h-px bg-slate-200"></span> {tr('climate', 'Climate')}
               </h2>
               {loadingClimate ? (
                 <span className="w-2 h-2 rounded-full bg-slate-400 animate-ping shrink-0"></span>
@@ -387,19 +413,19 @@ export default function App() {
 
             <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
               {loadingClimate || !climate ? (
-                <div className="h-12 flex items-center justify-center text-xs text-slate-400 font-semibold animate-pulse">Syncing API data...</div>
+                <div className="h-12 flex items-center justify-center text-xs text-slate-400 font-semibold animate-pulse">{tr('syncingApiData', 'Syncing API data...')}</div>
               ) : (
                 <div className="flex justify-between text-center divide-x divide-slate-200">
                   <div className="px-2 w-1/3">
-                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">Annual</div>
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">{tr('annual', 'Annual')}</div>
                     <div className="text-sm font-black text-emerald-800 dark:text-emerald-400 truncate">{climate.annual}<span className="text-[9px] text-slate-500 dark:text-slate-400 ml-0.5">mm</span></div>
                   </div>
                   <div className="px-2 w-1/3">
-                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">Kharif</div>
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">{tr('kharif', 'Kharif')}</div>
                     <div className="text-sm font-black text-emerald-800 dark:text-emerald-400 truncate">{climate.kharif}<span className="text-[9px] text-slate-500 dark:text-slate-400 ml-0.5">mm</span></div>
                   </div>
                   <div className="px-2 w-1/3">
-                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">Rabi</div>
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">{tr('rabi', 'Rabi')}</div>
                     <div className="text-sm font-black text-emerald-800 dark:text-emerald-400 truncate">{climate.rabi}<span className="text-[9px] text-slate-500 dark:text-slate-400 ml-0.5">mm</span></div>
                   </div>
                 </div>
@@ -413,26 +439,26 @@ export default function App() {
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <span className="w-4 h-px bg-slate-200"></span> Soil Chemistry
+                <span className="w-4 h-px bg-slate-200"></span> {tr('soilNutrients', 'Soil Chemistry')}
               </h2>
             </div>
             <div className="relative mb-3">
               <select name="soil_type" value={formData.soil_type} onChange={handleChange} className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-slate-900 dark:text-white text-sm font-semibold hover:border-slate-300 focus:ring-2 focus:ring-emerald-800 focus:border-emerald-800 outline-none truncate appearance-none transition-colors">
-                {SOIL_TYPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                {SOIL_TYPES.map(s => <option key={s.value} value={s.value}>{tr(s.key, s.label)}</option>)}
               </select>
               <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"><svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></div>
             </div>
 
             <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg mb-4 border border-slate-200 dark:border-slate-700">
-              <button onClick={() => setSoilInputMode('estimate')} className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all ${soilInputMode === 'estimate' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'}`}>Est. Average</button>
-              <button onClick={() => setSoilInputMode('manual')} className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all ${soilInputMode === 'manual' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'}`}>Custom Input</button>
+              <button onClick={() => setSoilInputMode('estimate')} className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all ${soilInputMode === 'estimate' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'}`}>{tr('estimatedAverage', 'Est. Average')}</button>
+              <button onClick={() => setSoilInputMode('manual')} className={`flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all ${soilInputMode === 'manual' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'}`}>{tr('customInput', 'Custom Input')}</button>
             </div>
 
             {soilInputMode === 'estimate' ? (
               <div className="space-y-4">
-                <SliderInput label="Nitrogen (N)" name="n" value={formData.n} min={0} max={300} step={1} unit="kg" onChange={handleChange} />
-                <SliderInput label="Phosphorus (P)" name="p" value={formData.p} min={0} max={150} step={1} unit="kg" onChange={handleChange} />
-                <SliderInput label="Potassium (K)" name="k" value={formData.k} min={0} max={150} step={1} unit="kg" onChange={handleChange} />
+                <SliderInput label={tr('nitrogen', 'Nitrogen (N)')} name="n" value={formData.n} min={0} max={300} step={1} unit="kg" onChange={handleChange} />
+                <SliderInput label={tr('phosphorus', 'Phosphorus (P)')} name="p" value={formData.p} min={0} max={150} step={1} unit="kg" onChange={handleChange} />
+                <SliderInput label={tr('potassium', 'Potassium (K)')} name="k" value={formData.k} min={0} max={150} step={1} unit="kg" onChange={handleChange} />
               </div>
             ) : (
               <div className="space-y-3">
@@ -448,8 +474,8 @@ export default function App() {
           </section>
 
           <div className="pt-4 pb-2 flex flex-col items-center justify-center gap-1 opacity-60">
-            <p className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">Source: ICRISAT (2000-2017)</p>
-            <p className="text-[9px] text-slate-400 font-medium">Last updated: May 15, 2026</p>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">{tr('source', 'Source: ICRISAT (2000-2017)')}</p>
+            <p className="text-[9px] text-slate-400 font-medium">{tr('lastUpdated', 'Last updated: May 15, 2026')}</p>
           </div>
 
         </div>
@@ -461,10 +487,16 @@ export default function App() {
         {/* Top Header */}
         <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-4">
-            <h2 className="font-bold text-slate-800 dark:text-slate-100">Analytics Dashboard</h2>
-            {loadingUi && <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded border border-emerald-100 animate-pulse">Translating...</span>}
+            <h2 className="font-bold text-slate-800 dark:text-slate-100">{tr('analyticsDashboard', 'Analytics Dashboard')}</h2>
+            {loadingUi && <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded border border-emerald-100 animate-pulse">{tr('translating', 'Translating...')}</span>}
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setLanguageSelected(false)}
+              className="px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 text-xs font-bold hover:text-slate-800 dark:hover:text-white transition-colors"
+            >
+              {tr('changeLanguage', 'Change Language')}
+            </button>
             <button 
               onClick={() => setDarkMode(!darkMode)}
               className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
@@ -476,28 +508,6 @@ export default function App() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
               )}
             </button>
-            <div className="relative">
-              <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-              </svg>
-              <select value={lang} onChange={(e) => handleLanguageSelect(e.target.value)} className="pl-8 pr-8 py-1.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg outline-none cursor-pointer hover:border-slate-300 transition-colors appearance-none">
-                <option value="English">English</option>
-                <option value="Hindi">Hindi</option>
-                <option value="Marathi">Marathi</option>
-                <option value="Telugu">Telugu</option>
-                <option value="Tamil">Tamil</option>
-                <option value="Kannada">Kannada</option>
-                <option value="Gujarati">Gujarati</option>
-                <option value="Bengali">Bengali</option>
-                <option value="Assamese">Assamese</option>
-                <option value="Malayalam">Malayalam</option>
-                <option value="Odia">Odia</option>
-                <option value="Punjabi">Punjabi</option>
-              </select>
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </div>
-            </div>
           </div>
         </header>
 
@@ -518,9 +528,9 @@ export default function App() {
                 <div className="w-24 h-24 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-full flex items-center justify-center mb-6">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                 </div>
-                <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">Engine Ready</h3>
+                <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">{tr('engineReady', 'Engine Ready')}</h3>
                 <p className="text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed font-medium">
-                  Adjust the farm parameters in the left sidebar and click "Generate Forecast" to generate an AI-powered yield forecast.
+                  {tr('engineReadyDescription', 'Adjust the farm parameters in the left sidebar and click "Generate Forecast" to generate an AI-powered yield forecast.')}
                 </p>
               </div>
             )}
@@ -542,14 +552,14 @@ export default function App() {
                 {results.metadata && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-center">
-                      <div className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1.5">Prediction Confidence</div>
-                      <div className={`text-lg font-black tracking-tight mb-1 ${results.metadata.confidence_level === 'High' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}`}>{results.metadata.confidence_level}</div>
-                      <p className="text-[10px] text-slate-400 font-medium leading-snug pr-4">Robustness based on localized soil matches and historical yield thresholds.</p>
+                      <div className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1.5">{tr('predictionConfidence', 'Prediction Confidence')}</div>
+                      <div className={`text-lg font-black tracking-tight mb-1 ${results.metadata.confidence_level === 'High' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}`}>{tr(results.metadata.confidence_level.toLowerCase(), results.metadata.confidence_level)}</div>
+                      <p className="text-[10px] text-slate-400 font-medium leading-snug pr-4">{tr('predictionConfidenceDescription', 'Robustness based on localized soil matches and historical yield thresholds.')}</p>
                     </div>
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-center">
-                      <div className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1.5">Rainfall Variability</div>
-                      <div className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight mb-1">{results.metadata.rainfall_variability}</div>
-                      <p className="text-[10px] text-slate-400 font-medium leading-snug pr-4">Historical district deviation tracking how unpredictable the monsoon is here.</p>
+                      <div className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1.5">{tr('rainfallVariability', 'Rainfall Variability')}</div>
+                      <div className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight mb-1">{tr(results.metadata.rainfall_variability.toLowerCase(), results.metadata.rainfall_variability)}</div>
+                      <p className="text-[10px] text-slate-400 font-medium leading-snug pr-4">{tr('rainfallVariabilityDescription', 'Historical district deviation tracking how unpredictable the monsoon is here.')}</p>
                     </div>
                   </div>
                 )}
@@ -557,7 +567,7 @@ export default function App() {
                 {/* Executive Summary (AI Report) */}
                 <div className="bg-emerald-50/50 dark:bg-emerald-900/20 border-l-[6px] border-emerald-700 rounded-r-2xl p-6 mb-8 shadow-sm">
                   <h3 className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-widest mb-3">
-                    Agronomic Insights
+                    {tr('agronomicInsights', 'Agronomic Insights')}
                   </h3>
                   <div className="text-[13px] text-slate-800 dark:text-slate-100 leading-snug font-medium">
                     <ul className="space-y-2.5 list-disc pl-4 marker:text-emerald-500">
@@ -570,20 +580,20 @@ export default function App() {
 
                 {/* Analytical Grid Label */}
                 <div className="flex items-center justify-between pt-4">
-                  <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Yield Forecast Rankings</h3>
+                  <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest">{tr('yieldForecastRankings', 'Yield Forecast Rankings')}</h3>
                   {/* Current Season Chip */}
                   {(() => {
                     const s = getCurrentSeason();
                     const seasonStyles = {
-                      'Kharif': { bg: 'bg-cyan-50 border-cyan-200 text-cyan-800', dot: 'bg-cyan-500', label: 'Kharif Season (Jun–Oct)' },
-                      'Rabi': { bg: 'bg-blue-50 border-blue-200 text-blue-800', dot: 'bg-blue-500', label: 'Rabi Season (Nov–Mar)' },
-                      'Zaid': { bg: 'bg-yellow-50 border-yellow-200 text-yellow-800', dot: 'bg-yellow-500', label: 'Zaid Season (Apr–May)' },
+                      'Kharif': { bg: 'bg-cyan-50 border-cyan-200 text-cyan-800', dot: 'bg-cyan-500', label: `${tr('kharifSeason', 'Kharif Season')} (Jun–Oct)` },
+                      'Rabi': { bg: 'bg-blue-50 border-blue-200 text-blue-800', dot: 'bg-blue-500', label: `${tr('rabiSeason', 'Rabi Season')} (Nov–Mar)` },
+                      'Zaid': { bg: 'bg-yellow-50 border-yellow-200 text-yellow-800', dot: 'bg-yellow-500', label: `${tr('zaidSeason', 'Zaid Season')} (Apr–May)` },
                     };
                     const style = seasonStyles[s] || seasonStyles['Zaid'];
                     return (
                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white bg-slate-800 px-3 py-1.5 rounded-lg shadow-sm">
                         <span className={`w-1.5 h-1.5 rounded-full ${style.dot} animate-pulse`}></span>
-                        Now: {style.label}
+                        {tr('currentSeasonPrefix', 'Now:')} {style.label}
                       </div>
                     );
                   })()}
@@ -592,7 +602,7 @@ export default function App() {
                 {/* Horizontal Crop Cards */}
                 <div className="space-y-3">
                   {results.recommendations.map((rec, i) => {
-                    const badge = getSeasonBadge(rec.crop) || { icon: '', title: 'Unknown', cls: 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' };
+                    const badge = getSeasonBadge(rec.crop, tr) || { icon: '', title: 'Unknown', cls: 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' };
                     const isHero = i === 0;
                     const barColor = rec.suitability_percentage >= 65 ? 'bg-emerald-500' : (rec.suitability_percentage >= 50 ? 'bg-amber-400' : 'bg-slate-300');
                     const baseYield = Math.round(rec.expected_yield_kg_per_ha);
@@ -612,23 +622,23 @@ export default function App() {
                         <div className={`flex-1 flex items-center ${isHero ? 'p-6 gap-6' : 'p-4 gap-4'}`}>
                           {/* 2. Crop Details */}
                           <div className="flex-[1] min-w-0">
-                            <h4 className={`font-extrabold text-slate-900 dark:text-white leading-tight capitalize ${isHero ? 'text-xl xl:text-2xl' : 'text-base xl:text-lg'}`}>{rec.crop.toLowerCase()}</h4>
-                            {isHero && <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mt-1 block">Recommended</span>}
+                            <h4 className={`font-extrabold text-slate-900 dark:text-white leading-tight capitalize whitespace-normal break-words [overflow-wrap:anywhere] ${isHero ? 'text-xl xl:text-2xl' : 'text-base xl:text-lg'}`}>{cropLabel(rec.crop)}</h4>
+                            {isHero && <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mt-1 block">{tr('recommended', 'Recommended')}</span>}
                           </div>
 
                           {/* 3. Expected Yield */}
                           <div className="flex-[1.2] border-l border-slate-100 dark:border-slate-700 pl-4 sm:pl-6 min-w-0">
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 truncate">Yield Range</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 truncate">{tr('yieldRange', 'Yield Range')}</div>
                             <div className={`font-extrabold text-emerald-800 dark:text-emerald-400 tabular-nums tracking-tight whitespace-nowrap ${isHero ? 'text-xl xl:text-2xl' : 'text-lg xl:text-xl'}`}>
                               {yieldRange}
                             </div>
-                            <div className="text-[10px] font-bold text-slate-400 mt-1">kg/ha <span className="font-medium opacity-75">(±5% est.)</span></div>
+                            <div className="text-[10px] font-bold text-slate-400 mt-1">{tr('kgPerHa', 'kg/ha')} <span className="font-medium opacity-75">{tr('estimateSuffix', '(±5% est.)')}</span></div>
                           </div>
 
                           {/* 4. Suitability */}
                           <div className="flex-[1.5] border-l border-slate-100 dark:border-slate-700 pl-4 sm:pl-6 min-w-0">
                             <div className="flex justify-between items-end mb-1.5">
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Suitability</span>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">{tr('suitability', 'Suitability')}</span>
                               <span className={`${isHero ? 'text-sm' : 'text-xs'} font-black text-slate-800 dark:text-slate-100 tabular-nums`}>{rec.suitability_percentage.toFixed(1)}%</span>
                             </div>
                             <div className={`w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden ${isHero ? 'h-1.5 mb-3' : 'h-1 mb-2'}`}>
@@ -636,18 +646,18 @@ export default function App() {
                             </div>
                             {isHero ? (
                               <div>
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-bold mb-0.5">Recorded best yield</div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-bold mb-0.5">{tr('recordedBestYield', 'Recorded best yield')}</div>
                                 <div className="text-slate-800 dark:text-slate-100 font-black text-sm tabular-nums">
-                                  {rec.max_potential_yield?.toLocaleString() ?? '—'} <span className="text-xs font-medium text-slate-500 dark:text-slate-400">kg/ha</span>
+                                  {rec.max_potential_yield?.toLocaleString() ?? '—'} <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{tr('kgPerHa', 'kg/ha')}</span>
                                 </div>
                                 <div className="text-slate-600 dark:text-slate-300 italic text-[10px] mt-0.5 font-medium leading-tight">
-                                  Source: ICRISAT data (2000-2017)
+                                  {tr('sourceData', 'Source: ICRISAT data (2000-2017)')}
                                 </div>
                               </div>
                             ) : (
                               <div className="flex justify-between items-center text-[10px]">
-                                <span className="text-slate-500 dark:text-slate-400 font-bold uppercase truncate pr-2">Best Yield:</span>
-                                <span className="text-slate-700 dark:text-slate-200 font-black tabular-nums shrink-0">{rec.max_potential_yield?.toLocaleString() ?? '—'} kg/ha</span>
+                                <span className="text-slate-500 dark:text-slate-400 font-bold uppercase truncate pr-2">{tr('bestYield', 'Best Yield:')}</span>
+                                <span className="text-slate-700 dark:text-slate-200 font-black tabular-nums shrink-0">{rec.max_potential_yield?.toLocaleString() ?? '—'} {tr('kgPerHa', 'kg/ha')}</span>
                               </div>
                             )}
                           </div>
