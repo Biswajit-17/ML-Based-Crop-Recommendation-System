@@ -67,6 +67,21 @@ const CROP_SEASONS = {
   'FLAXSEED / ALSI': { tier: 2, season: 'Rabi' },
 };
 
+const LANGUAGES = [
+  { value: "English", label: "English", native: "English" },
+  { value: "Hindi", label: "Hindi", native: "हिंदी" },
+  { value: "Marathi", label: "Marathi", native: "मराठी" },
+  { value: "Telugu", label: "Telugu", native: "తెలుగు" },
+  { value: "Tamil", label: "Tamil", native: "தமிழ்" },
+  { value: "Kannada", label: "Kannada", native: "ಕನ್ನಡ" },
+  { value: "Gujarati", label: "Gujarati", native: "ગુજરાતી" },
+  { value: "Bengali", label: "Bengali", native: "বাংলা" },
+  { value: "Assamese", label: "Assamese", native: "অসমীয়া" },
+  { value: "Malayalam", label: "Malayalam", native: "മലയാളം" },
+  { value: "Odia", label: "Odia", native: "ଓଡ଼ିଆ" },
+  { value: "Punjabi", label: "Punjabi", native: "ਪੰਜਾਬੀ" }
+];
+
 const getCurrentSeason = () => {
   const month = new Date().getMonth() + 1;
   if (month >= 6 && month <= 10) return 'Kharif';
@@ -285,56 +300,42 @@ export default function App() {
   };
 
 
-
   if (!languageSelected) {
     return (
       <div className="min-h-screen bg-[#f4f7f6] dark:bg-slate-900 flex items-center justify-center p-6 font-sans">
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-10 max-w-md w-full shadow-xl text-center">
-          <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-sm border border-emerald-100">🌱</div>
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-10 max-w-2xl w-full shadow-xl text-center transition-all">
+          <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-sm border border-emerald-100 animate-bounce">🌱</div>
           <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">{tr('appName', 'HarvestML')}</h1>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-8">{tr('languagePrompt', 'Please select your preferred interface language to continue.')}</p>
 
           {loadingUi ? (
-            <div className="py-8 space-y-4 flex flex-col items-center">
-              <svg className="w-8 h-8 animate-spin text-emerald-800 dark:text-emerald-400" fill="none" viewBox="0 0 24 24">
+            <div className="py-12 space-y-4 flex flex-col items-center justify-center">
+              <svg className="w-10 h-10 animate-spin text-emerald-800 dark:text-emerald-400" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
               </svg>
-              <p className="text-emerald-800 dark:text-emerald-400 font-bold animate-pulse">{tr('initializingInterface', 'Initializing Interface...')}</p>
+              <p className="text-emerald-800 dark:text-emerald-400 font-black tracking-wider text-sm animate-pulse">{tr('initializingInterface', 'Initializing Interface...')}</p>
             </div>
           ) : (
-            <div className="space-y-5 text-left">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{tr('selectLanguage', 'Select Language')}</label>
-                <div className="relative">
-                  <select
-                    value={lang}
-                    onChange={(e) => setLang(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-bold px-4 py-3.5 rounded-xl outline-none focus:ring-2 focus:ring-emerald-800 appearance-none"
-                  >
-                    <option value="English">English</option>
-                    <option value="Hindi">Hindi (हिंदी)</option>
-                    <option value="Marathi">Marathi (मराठी)</option>
-                    <option value="Telugu">Telugu (తెలుగు)</option>
-                    <option value="Tamil">Tamil (தமிழ்)</option>
-                    <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
-                    <option value="Gujarati">Gujarati (ગુજરાતી)</option>
-                    <option value="Bengali">Bengali (বাংলা)</option>
-                    <option value="Assamese">Assamese (অসমীয়া)</option>
-                    <option value="Malayalam">Malayalam (മലയാളം)</option>
-                    <option value="Odia">Odia (ଓଡ଼ିଆ)</option>
-                    <option value="Punjabi">Punjabi (ਪੰਜਾਬੀ)</option>
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 dark:text-slate-400">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
-                  </div>
+            <div className="space-y-6">
+              <div className="text-left">
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 text-center">{tr('selectLanguage', 'Select Language')}</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {LANGUAGES.map((item) => (
+                    <button
+                      key={item.value}
+                      onClick={() => handleLanguageSelect(item.value)}
+                      className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-emerald-50/50 dark:bg-slate-800/50 dark:hover:bg-emerald-950/20 hover:border-emerald-700 dark:hover:border-emerald-500 hover:shadow-md active:scale-95 transition-all text-center group cursor-pointer"
+                    >
+                      <span className="text-base font-extrabold text-slate-800 dark:text-slate-100 group-hover:text-emerald-800 dark:group-hover:text-emerald-400 transition-colors">
+                        {item.native}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-wider group-hover:text-emerald-600/70 dark:group-hover:text-emerald-500/70 transition-colors">
+                        {item.label}
+                      </span>
+                    </button>
+                  ))}
                 </div>
-              </div>
-
-              <div className="pt-2">
-                <button onClick={() => handleLanguageSelect(lang)} className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 rounded-xl shadow-md transition-all">
-                  {tr('launchPlatform', 'Launch Platform')}
-                </button>
               </div>
             </div>
           )}
