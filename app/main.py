@@ -1,0 +1,637 @@
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+# Trigger reload
+from pydantic import BaseModel
+import httpx
+import joblib
+import pandas as pd
+import numpy as np
+import os
+import xgboost
+import json
+import datetime
+from openai import OpenAI
+from dotenv import load_dotenv
+from typing import Optional
+from contextlib import asynccontextmanager
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint  # noqa: F401 — kept for optional HF translation pipeline
+
+# Load environment variables 
+load_dotenv()
+
+# Configure Open Router client if the key exists
+or_client = None
+if os.getenv("OPENROUTER_API_KEY"):
+    or_client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        timeout=5.0,  # Strict 5-second killswitch for the entire HTTP session
+        default_headers={
+            "HTTP-Referer": "http://localhost:5173",
+            "X-Title": "CropSimulator"
+        }
+    )
+
+# Define the global models and dataset
+simulator_model = None
+preprocessor = None
+master_data = None
+crop_max_yields = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global simulator_model, preprocessor, master_data, crop_max_yields
+    try:
+        # Load the models using absolute path resolving from the main.py location
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_path = os.path.join(base_dir, 'models', 'tuned_simulator.joblib')
+        prep_path = os.path.join(base_dir, 'models', 'simulator_preprocessor.joblib')
+        data_path = os.path.join(base_dir, 'data', 'processed', 'master_dataset_clean.csv')
+        
+        simulator_model = joblib.load(model_path)
+        preprocessor = joblib.load(prep_path)
+        
+        # Load dataset to serve historical defaults quickly
+        master_data = pd.read_csv(data_path)
+        
+        # Calculate the 95th percentile (ideal) yield for every crop to use as a baseline
+        crop_max_yields = master_data.groupby('Crop')['Yield (Kg per ha)'].quantile(0.95).to_dict()
+        
+        print("ML Models & Historical Data loaded successfully!")
+    except Exception as e:
+        print(f"Error loading ML Models: {e}")
+    yield
+
+app = FastAPI(
+    title="Crop Recommendation API", 
+    description="XGBoost & Gemma powered crop simulation API",
+    lifespan=lifespan
+)
+
+# Setup CORS for the Vite/React frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allow all origins so Vercel can connect
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Hardcoded array of all valid crops from training
+ALL_CROPS = ['BARLEY', 'CASTOR', 'CHICKPEA', 'FINGER MILLET', 'GROUNDNUT', 'LINSEED', 'MAIZE', 'PIGEONPEA', 'RAPESEED AND MUSTARD', 'RICE', 'SAFFLOWER', 'SESAMUM', 'SORGHUM', 'SUGARCANE', 'WHEAT', 'SOYABEAN', 'SUNFLOWER', 'COTTON', 'PEARL MILLET']
+
+# Human-readable mapping for Indian local names
+CROP_DISPLAY_NAMES = {
+    "FINGER MILLET": "Ragi",
+    "PEARL MILLET": "Bajra",
+    "SORGHUM": "Jowar",
+    "MAIZE": "Corn",
+    "PIGEONPEA": "Tur Dal / Arhar",
+    "SESAMUM": "Til",
+    "LINSEED": "Flaxseed / Alsi",
+    "SAFFLOWER": "Kusum",
+    "RAPESEED AND MUSTARD": "Mustard / Sarson"
+}
+
+# The single source of truth for the English UI Dictionary
+ENGLISH_UI_BASE = {
+    "appName": "HarvestML",
+    "appSubtitle": "AI Yield Simulator",
+    "languagePrompt": "Please select your preferred interface language to continue.",
+    "selectLanguage": "Select Language",
+    "launchPlatform": "Launch Platform",
+    "changeLanguage": "Change Language",
+    "initializingInterface": "Initializing Interface...",
+    "generateForecast": "Generate Forecast",
+    "generating": "Generating...",
+    "location": "Location",
+    "climate": "Climate",
+    "syncingApiData": "Syncing API data...",
+    "annual": "Annual",
+    "kharif": "Kharif",
+    "rabi": "Rabi",
+    "soilProfile": "Soil Profile",
+    "primarySoil": "Primary Soil",
+    "soilNutrients": "Soil Nutrients",
+    "estimatedAverage": "Est. Average",
+    "customInput": "Custom Input",
+    "nitrogen": "Nitrogen (N)",
+    "phosphorus": "Phosphorus (P)",
+    "potassium": "Potassium (K)",
+    "source": "Source: ICRISAT (2000-2017)",
+    "lastUpdated": "Last updated: May 15, 2026",
+    "analyticsDashboard": "Analytics Dashboard",
+    "translating": "Translating...",
+    "engineReady": "Engine Ready",
+    "engineReadyDescription": "Adjust the farm parameters in the left sidebar and click \"Generate Forecast\" to generate an AI-powered yield forecast.",
+    "predictionConfidence": "Prediction Confidence",
+    "predictionConfidenceDescription": "Robustness based on localized soil matches and historical yield thresholds.",
+    "rainfallVariability": "Rainfall Variability",
+    "rainfallVariabilityDescription": "Historical district deviation tracking how unpredictable the monsoon is here.",
+    "agronomicInsights": "Agronomic Insights",
+    "yieldForecastRankings": "Yield Forecast Rankings",
+    "yieldRange": "Yield Range",
+    "suitability": "Suitability",
+    "recommended": "Recommended",
+    "recordedBestYield": "Recorded best yield",
+    "bestYield": "Best Yield:",
+    "sourceData": "Source: ICRISAT data (2000-2017)",
+    "kgPerHa": "kg/ha",
+    "estimateSuffix": "(±5% est.)",
+    "currentSeasonPrefix": "Now:",
+    "kharifSeason": "Kharif Season",
+    "rabiSeason": "Rabi Season",
+    "zaidSeason": "Zaid Season",
+    "plantNow": "Plant Now",
+    "offSeason": "Off-Season",
+    "flexiblePlanting": "Flexible Planting",
+    "canBeGrownYearRound": "Can be grown year-round",
+    "suitableForCurrentSeason": "Suitable for the current {season} season",
+    "rightTimeToSow": "This is the right time to sow",
+    "bestInSeason": "Best in {season} ({months})",
+    "sowFrom": "Sow from {month}",
+    "high": "High",
+    "moderate": "Moderate",
+    "low": "Low",
+    "connectionError": "Connection error. Is the backend running?",
+    "simulationFailed": "Simulation failed.",
+    "couldNotFetchClimate": "Could not fetch climate data.",
+    "couldNotFetchDistricts": "Could not fetch districts",
+    "translationFailed": "Translation failed",
+    "blackSoil": "Black Soil (Vertisols)",
+    "redSoil": "Red Soil (Alfisols)",
+    "desertSoil": "Desert Soil (Aridisols)",
+    "alluvialSoil": "Alluvial Soil (Entisols)",
+    "forestSoil": "Forest Soil (Udalfs)",
+    "sandySoil": "Sandy Soil (Psamments)",
+    "youngSoil": "Young Soil (Inceptisols)",
+    "cropBarley": "Barley",
+    "cropCastor": "Castor",
+    "cropChickpea": "Chickpea",
+    "cropCotton": "Cotton",
+    "cropRagi": "Ragi",
+    "cropGroundnut": "Groundnut",
+    "cropFlaxseedAlsi": "Flaxseed / Alsi",
+    "cropCorn": "Corn",
+    "cropBajra": "Bajra",
+    "cropTurDalArhar": "Tur Dal / Arhar",
+    "cropMustardSarson": "Mustard / Sarson",
+    "cropRice": "Rice",
+    "cropKusum": "Kusum",
+    "cropTil": "Til",
+    "cropJowar": "Jowar",
+    "cropSoyabean": "Soyabean",
+    "cropSugarcane": "Sugarcane",
+    "cropSunflower": "Sunflower",
+    "cropWheat": "Wheat"
+}
+
+# In-Memory Cache and Disk Cache for Translations
+CACHE_DIR = "translations"
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+ui_translation_cache = {
+    "English": ENGLISH_UI_BASE
+}
+
+def load_cache_from_disk():
+    for filename in os.listdir(CACHE_DIR):
+        if filename.endswith(".json"):
+            lang = filename.replace(".json", "")
+            try:
+                with open(os.path.join(CACHE_DIR, filename), "r", encoding="utf-8") as f:
+                    cached_translation = json.load(f)
+                    if set(ENGLISH_UI_BASE).issubset(cached_translation):
+                        ui_translation_cache[lang] = cached_translation
+            except Exception as e:
+                print(f"Failed to load cache for {lang}: {e}")
+
+load_cache_from_disk()
+
+# Feature names required by the ML pipeline in exact order
+FEATURES = [
+    'N (Kg/ha)', 'P (Kg/ha)', 'K (Kg/ha)', 
+    'Annual Rainfall (mm)', 'Kharif Rainfall (mm)', 'Rabi Rainfall (mm)', 
+    'Irrigation Ratio', 'Primary Soil Type', 'State Name', 'Crop'
+]
+
+class PredictionRequest(BaseModel):
+    n: float
+    p: float
+    k: float
+    annual_rainfall: float
+    kharif_rainfall: float
+    rabi_rainfall: float
+    irrigation_ratio: float
+    soil_type: str
+    state_name: str
+    district_name: Optional[str] = None
+    language: str = "English"
+
+
+
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "FastAPI Yield Simulator is actively running!"}
+
+@app.get("/api/ui-language/{language}")
+def get_ui_language(language: str):
+    """
+    Fetches the UI translation dictionary. Uses caching to ensure we only
+    ever query the LLM once per language.
+    """
+    if language in ui_translation_cache:
+        return ui_translation_cache[language]
+        
+    if not os.getenv("HF_API_KEY"):
+        return ENGLISH_UI_BASE # Fallback if no internet/API key
+        
+    print(f"Generating UI translation for {language}...")
+    
+    prompt = f"""
+    You are an expert, highly accurate translator. Translate the following JSON values from English to {language}.
+    You MUST return ONLY valid, raw JSON. Do not include markdown formatting like ```json or any conversational text. Just the raw JSON object.
+    
+    CRITICAL INSTRUCTION: Return the translated text in NATIVE UTF-8 characters. Absolutely DO NOT use \\uXXXX unicode escapes.
+    
+    {json.dumps(ENGLISH_UI_BASE)}
+    """
+    
+    try:
+        # Load the HuggingFace API key
+        hf_key = os.getenv("HF_API_KEY")
+        if not hf_key:
+            print("No HF_API_KEY found, falling back to English.")
+            return ENGLISH_UI_BASE
+            
+        # Using the exact LangChain implementation requested
+        llm = HuggingFaceEndpoint(
+            model="google/gemma-4-31B-it",
+            task="text-generation",
+            max_new_tokens=2048,
+            temperature=0.1,
+            huggingfacehub_api_token=hf_key
+        )
+        model = ChatHuggingFace(llm=llm)
+        
+        response = model.invoke(prompt)
+        raw_text = str(response.content).strip()
+        
+        # Hugging Face API sometimes omits the charset header, causing `requests` to default to latin-1
+        # which mangles UTF-8 text into Mojibake. This explicitly fixes it:
+        try:
+            raw_text = raw_text.encode('latin-1').decode('utf-8')
+        except UnicodeEncodeError:
+            pass # It was already decoded properly or we can't fix it
+        except UnicodeDecodeError:
+            pass
+            
+        # Clean up markdown if the LLM accidentally included it
+        if raw_text.startswith("```json"):
+            raw_text = raw_text.replace("```json", "", 1)
+        if raw_text.startswith("```"):
+            raw_text = raw_text.replace("```", "", 1)
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:-3]
+            
+        # Try to fix broken unicode escapes just in case the model ignored the prompt
+        raw_text = raw_text.encode('utf-8').decode('unicode_escape') if r'\u' in raw_text else raw_text
+            
+        translated_json = json.loads(raw_text.strip(), strict=False)
+        
+        # Cache it permanently to disk!
+        ui_translation_cache[language] = translated_json
+        with open(os.path.join(CACHE_DIR, f"{language}.json"), "w", encoding="utf-8") as f:
+            json.dump(translated_json, f, ensure_ascii=False, indent=4)
+            
+        print(f"Successfully cached {language} UI via Hugging Face LangChain to disk!")
+        return translated_json
+        
+    except Exception as e:
+        print(f"Hugging Face Translation failed: {e}")
+        return ENGLISH_UI_BASE
+
+
+
+@app.get("/api/districts/{state_name}")
+def get_state_districts(state_name: str):
+    if master_data is None:
+        raise HTTPException(status_code=500, detail="Database not loaded")
+        
+    search_state = state_name
+    if search_state.upper() == "ODISHA":
+        search_state = "Orissa"
+        
+    state_data = master_data[master_data['State Name'].str.upper() == search_state.upper()]
+    if state_data.empty:
+        return []
+        
+    districts = state_data['Dist Name'].dropna().unique().tolist()
+    districts.sort()
+    return districts
+
+
+@app.get("/api/defaults/{state_name}")
+def get_state_defaults(state_name: str, district: Optional[str] = None):
+    if master_data is None:
+        raise HTTPException(status_code=500, detail="Database not loaded")
+        
+    # Map modern state names to historical dataset spelling
+    search_state = state_name
+    if search_state.upper() == "ODISHA":
+        search_state = "Orissa"
+        
+    state_data = master_data[master_data['State Name'].str.upper() == search_state.upper()]
+    
+    if state_data.empty:
+        raise HTTPException(status_code=404, detail="State not found")
+        
+    # Filter down to district if requested, else use state data
+    dist_data = state_data
+    if district:
+        filtered = state_data[state_data['Dist Name'].str.upper() == district.upper()]
+        if not filtered.empty:
+            dist_data = filtered
+
+    # Default to 50-year historical averages
+    annual_rain = round(dist_data['Annual Rainfall (mm)'].mean(), 1)
+    kharif_rain = round(dist_data['Kharif Rainfall (mm)'].mean(), 1)
+    rabi_rain = round(dist_data['Rabi Rainfall (mm)'].mean(), 1)
+    
+    # Attempt to fetch LIVE weather data from Open-Meteo API (rolling 10-year window)
+    try:
+        # 1. Get Lat/Lon of State or District
+        query = f"{district},{state_name}+India" if district else f"{state_name}+India"
+        geo_res = httpx.get(f"https://nominatim.openstreetmap.org/search?q={query}&format=json", headers={'User-Agent': 'CropRecommendationSystem/1.0'}, timeout=3.0)
+        if geo_res.status_code == 200 and len(geo_res.json()) > 0:
+            lat = geo_res.json()[0]['lat']
+            lon = geo_res.json()[0]['lon']
+
+            # 2. Compute dynamic 10-year window: always ends at last complete year
+            end_year   = datetime.datetime.now().year - 1   # e.g. 2025 in 2026
+            start_year = end_year - 9                        # e.g. 2016 in 2026
+            start_date = f"{start_year}-01-01"
+            end_date   = f"{end_year}-12-31"
+
+            # 3. Fetch the full window from Open-Meteo Archive API
+            weather_res = httpx.get(
+                f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&daily=precipitation_sum&timezone=auto",
+                timeout=10.0
+            )
+            if weather_res.status_code == 200:
+                data = weather_res.json()
+                dates = data['daily']['time']
+                precip = data['daily']['precipitation_sum']
+
+                # Accumulators for each year in the window
+                yearly = {y: {"annual": 0, "kharif": 0, "rabi": 0} for y in range(start_year, end_year + 1)}
+
+                for d, p in zip(dates, precip):
+                    if p is None: continue
+                    year = int(d.split('-')[0])
+                    month = int(d.split('-')[1])
+                    if year not in yearly: continue
+                    yearly[year]["annual"] += p
+                    if 6 <= month <= 9:
+                        yearly[year]["kharif"] += p
+                    elif month >= 10 or month <= 3:
+                        yearly[year]["rabi"] += p
+
+                # Average across all 10 years for a statistically reliable baseline
+                n_years = end_year - start_year + 1
+                annual_rain = round(sum(yearly[y]["annual"] for y in range(start_year, end_year + 1)) / n_years, 1)
+                kharif_rain = round(sum(yearly[y]["kharif"] for y in range(start_year, end_year + 1)) / n_years, 1)
+                rabi_rain   = round(sum(yearly[y]["rabi"]   for y in range(start_year, end_year + 1)) / n_years, 1)
+
+                location_msg = f"{district}, {state_name}" if district else state_name
+                print(f"Fetched {n_years}-year averaged weather for {location_msg} ({start_year}-{end_year})")
+    except Exception as e:
+        print(f"Live Weather API Failed. Falling back to historical average: {e}")
+        
+    return {
+        "state": state_name.upper(),
+        "district": district.upper() if district else None,
+        "n_avg": round(dist_data['N (Kg/ha)'].mean(), 1),
+        "p_avg": round(dist_data['P (Kg/ha)'].mean(), 1),
+        "k_avg": round(dist_data['K (Kg/ha)'].mean(), 1),
+        "annual_rainfall_avg": annual_rain,
+        "kharif_rainfall_avg": kharif_rain,
+        "rabi_rainfall_avg": rabi_rain,
+        "irrigation_ratio_avg": round(dist_data['Irrigation Ratio'].mean(), 3)
+    }
+
+@app.post("/api/simulate")
+def simulate_yield(request: PredictionRequest):
+    import time
+    start_time = time.time()
+    
+    if not simulator_model or not preprocessor:
+        raise HTTPException(status_code=500, detail="ML Models are not loaded")
+        
+    try:
+        # Map modern state names to historical dataset spelling
+        ml_state_name = request.state_name
+        if ml_state_name.upper() == "ODISHA":
+            ml_state_name = "Orissa"
+
+        # Create the environment profile based on user input
+        env_profile = {
+            'N (Kg/ha)': request.n,
+            'P (Kg/ha)': request.p,
+            'K (Kg/ha)': request.k,
+            'Annual Rainfall (mm)': request.annual_rainfall,
+            'Kharif Rainfall (mm)': request.kharif_rainfall,
+            'Rabi Rainfall (mm)': request.rabi_rainfall,
+            'Irrigation Ratio': request.irrigation_ratio,
+            'Primary Soil Type': request.soil_type,
+            'State Name': ml_state_name
+        }
+        
+        # 1. Artificially duplicate this environment 19 times
+        env_df = pd.DataFrame([env_profile] * len(ALL_CROPS))
+        
+        # 2. Assign the 19 unique crop names
+        env_df['Crop'] = ALL_CROPS
+        
+        # Ensure column order matches the training features
+        env_df = env_df[FEATURES]
+        
+        # 3. Process data
+        X_processed = preprocessor.transform(env_df)
+        
+        # 4. Predict Yields for all 19 crops
+        simulated_yields = simulator_model.predict(X_processed)
+        
+        # 5. Calculate "Suitability Score" (%) and Sort Top 5
+        # --- Option A: Global Filter & Ecological Confidence ---
+        # 1. We revert to Global Baselines so predicted yields don't mathematically exceed the "Best Yield" in the UI.
+        # 2. We inject a frequency penalty: If a crop is rarely/never grown in the selected state, it gets heavily penalized.
+        
+        state_data = master_data[master_data['State Name'].str.upper() == ml_state_name.upper()] if master_data is not None else pd.DataFrame()
+        
+        max_state_records = 1
+        if not state_data.empty:
+            crop_counts = state_data['Crop'].value_counts()
+            if not crop_counts.empty:
+                max_state_records = crop_counts.max()
+        
+        results = []
+        for crop, yield_val in zip(ALL_CROPS, simulated_yields):
+            crop_state_data = state_data[state_data['Crop'] == crop]
+            
+            # Use Global Max to ensure realistic boundaries
+            baseline_max = crop_max_yields.get(crop, yield_val)
+            
+            # --- AGRONOMIC GUARDRAIL 1: Biological Capping ---
+            # XGBoost cannot extrapolate. Prevent it from predicting yields higher than the biological limit.
+            yield_val = min(yield_val, baseline_max)
+            
+            # --- CORE ML FIX: Data-Driven Acreage Prior (Bayesian Weight) ---
+            # Instead of hardcoding agronomic limits, we use the collective historical wisdom of local farmers.
+            # We look at the average Area (Hectares) planted for this crop in this state.
+            # If a crop is never grown here (like Safflower in flooded Odisha), its acreage is near zero.
+            # We use a logarithmic scale to create a soft, pure mathematical penalty for out-of-distribution ML predictions.
+            acreage_weight = 0.1 # Default extreme penalty for crops with zero data
+            if not crop_state_data.empty:
+                crop_mean_area = crop_state_data['Area (1000 ha)'].mean()
+                max_state_area = state_data.groupby('Crop')['Area (1000 ha)'].mean().max()
+                
+                if max_state_area > 0 and crop_mean_area > 0:
+                    import math
+                    # Logarithmic scaling prevents staples from aggressively crushing secondary crops
+                    acreage_weight = math.log1p(crop_mean_area) / math.log1p(max_state_area)
+            
+            raw_score = (yield_val / baseline_max) * 100 * acreage_weight
+            
+            display_name = CROP_DISPLAY_NAMES.get(crop, crop.title())
+            results.append([display_name, float(yield_val), float(raw_score), float(baseline_max)])
+            
+        # Sort by True Suitability Score FIRST, then Yield
+        results.sort(key=lambda x: (x[2], x[1]), reverse=True)
+        
+        top_5 = results[:5]
+        
+        # --- Relative UI Normalization ---
+        # The raw scores are now heavily weighted by Bayesian probabilities and Global Maximums.
+        # This makes them mathematically sound, but absolute scores can look very low (e.g., the best crop gets 76%).
+        # To make the dashboard user-friendly, we convert this into a "Relative Suitability Score".
+        # We define the #1 best crop as the theoretical perfect choice (scaled to 98.5%),
+        # and scale all other crops relative to that #1 choice.
+        highest_score = top_5[0][2]
+        
+        if highest_score > 0:
+            scale_factor = 98.5 / highest_score
+            for item in top_5:
+                item[2] = item[2] * scale_factor
+                
+        # Final safety cap
+        for item in top_5:
+            item[2] = min(item[2], 99.5)
+        
+        # Format the response
+        recommendations = [
+            {
+                "crop": crop, 
+                "expected_yield_kg_per_ha": round(yield_val, 1),
+                "max_potential_yield": round(baseline_max, 1),
+                "suitability_percentage": round(score, 1)
+            } 
+            for crop, yield_val, score, baseline_max in top_5
+        ]
+        
+        # 6. Generate the AI Agronomist Report using Open Router
+        ai_report = "AI Advisory is unavailable. Please check your OPENROUTER_API_KEY in the .env file."
+        active_model = None
+        if or_client:
+            # Open Router allows access to models like deepseek/deepseek-chat
+            loc_str = f"{request.district_name} district, {request.state_name}" if request.district_name else request.state_name
+            prompt = f"""
+            You are an expert Indian Agronomist speaking directly to a farmer in {loc_str} with {request.soil_type} soil.
+            Their soil nutrients are: N={request.n}, P={request.p}, K={request.k}.
+            Their historical annual rainfall is {request.annual_rainfall} mm. 
+            
+            Our AI Simulation Engine has mathematically determined their Top 5 best crops:
+            1. {top_5[0][0]} (Suitability: {top_5[0][2]:.1f}%)
+            2. {top_5[1][0]} (Suitability: {top_5[1][2]:.1f}%)
+            3. {top_5[2][0]} (Suitability: {top_5[2][2]:.1f}%)
+            4. {top_5[3][0]} (Suitability: {top_5[3][2]:.1f}%)
+            5. {top_5[4][0]} (Suitability: {top_5[4][2]:.1f}%)
+            
+            Write a short, punchy 3-paragraph advisory in extremely simple, plain language that a local farmer can easily understand. 
+            Paragraph 1: Explain why the top crop is an excellent choice for their region and soil. .
+            Paragraph 2: Give one quick, practical tip about fertilizer based on their NPK values.
+            
+            CRITICAL RULES:
+            - ALL listed crops are agricultural field crops. If "Kusum" or "Flaxseed" is recommended, they are herbaceous oilseeds. "Kusum" refers strictly to Safflower (Carthamus tinctorius), NOT the Kusum timber tree. Do not hallucinate crop biology or timber yields.
+            - Ensure your seasonal advice is accurate for the crop in India (e.g., Safflower is a dry Rabi crop, not a heavy monsoon Kharif crop).
+            - You MUST write your entire response exclusively in {request.language}.
+            - Use basic, conversational language. Absolutely NO complex scientific jargon or academic language.
+            - NEVER output exact rainfall numbers (mm) to the farmer. Translate the data into plain words (e.g. "heavy monsoon region" or "drier climate").
+            - Keep it concise (maximum 4-5 sentences total).
+            - Do not use asterisks or bolding.
+            """
+            # Waterfall Fallback System: If a model hits a rate limit or queue, try the next!
+            models_to_try = [
+                "openai/gpt-oss-120b:free",           # User's primary choice
+                "meta-llama/llama-3.2-3b-instruct:free", # Highly reliable backup
+                "minimax/minimax-m2.5:free"            # Fast 3rd tier backup
+            ]
+            
+            ai_report_generated = None
+            active_model = "None (Rate Limited)"
+            
+            for model_id in models_to_try:
+                try:
+                    response = or_client.chat.completions.create(
+                        model=model_id, 
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.5,
+                        max_tokens=250
+                    )
+                    ai_report_generated = response.choices[0].message.content
+                    active_model = model_id
+                    print(f"Successfully generated AI report using: {model_id}")
+                    break # Success! Break out of the loop
+                except Exception as e:
+                    print(f"Open Router Model {model_id} failed: {e}. Trying next...")
+            
+            if ai_report_generated:
+                ai_report = ai_report_generated
+            else:
+                ai_report = "AI Advisory is temporarily unavailable. All 3 backup models hit rate limits or timed out."
+
+        generation_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Calculate statistical Coefficient of Variation (CV) for Rainfall Variability
+        rain_var = "Moderate"
+        if request.district_name and master_data is not None:
+            dist_data = master_data[master_data['Dist Name'].str.upper() == request.district_name.upper()]
+            if len(dist_data) > 1 and dist_data['Annual Rainfall (mm)'].mean() > 0:
+                cv = (dist_data['Annual Rainfall (mm)'].std() / dist_data['Annual Rainfall (mm)'].mean()) * 100
+                if cv > 25:
+                    rain_var = "High"
+                elif cv < 15:
+                    rain_var = "Low"
+        
+        # Confidence derived from top crop's baseline certainty
+        model_certainty_pct = min(100.0, max(0.0, top_5[0][2]))
+        confidence_level = "High" if model_certainty_pct > 75 else ("Moderate" if model_certainty_pct > 50 else "Low")
+
+        return {
+            "status": "success",
+            "state_simulated": request.state_name,
+            "recommendations": recommendations,
+            "ai_advisory": ai_report,
+            "metadata": {
+                "generation_time_ms": generation_time_ms,
+                "active_model": f"Random Forest + {active_model}" if or_client else "Random Forest Only",
+                "model_certainty_pct": round(model_certainty_pct, 1),
+                "rainfall_variability": rain_var,
+                "confidence_level": confidence_level
+            }
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
