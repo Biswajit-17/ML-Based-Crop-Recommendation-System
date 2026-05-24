@@ -217,7 +217,7 @@ export default function App() {
     let cancel = false;
     const fetchDistricts = async () => {
       try {
-        const res = await fetch(`http://${window.location.hostname}:8000/api/districts/${formData.state_name}`);
+        const res = await fetch(`https://bisu17-ml-based-crop-recommendation-system.hf.space/api/districts/${formData.state_name}`);
         if (!res.ok) throw new Error(tr("couldNotFetchDistricts", "Could not fetch districts"));
         const data = await res.json();
         if (cancel) return;
@@ -235,7 +235,7 @@ export default function App() {
       if (districtsList.length > 0 && formData.district_name && !districtsList.includes(formData.district_name)) return;
       setLoadingClimate(true); setClimate(null); setError("");
       try {
-        let url = `http://${window.location.hostname}:8000/api/defaults/${formData.state_name}`;
+        let url = `https://bisu17-ml-based-crop-recommendation-system.hf.space/api/defaults/${formData.state_name}`;
         if (formData.district_name) url += `?district=${encodeURIComponent(formData.district_name)}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(tr("couldNotFetchClimate", "Could not fetch climate data."));
@@ -278,7 +278,7 @@ export default function App() {
     setSimulating(true); setError(""); setResults(null);
     try {
       const payload = { ...formData, language: lang };
-      const res = await fetch(`http://${window.location.hostname}:8000/api/simulate`, {
+      const res = await fetch(`https://bisu17-ml-based-crop-recommendation-system.hf.space/api/simulate`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error(tr("simulationFailed", "Simulation failed."));
@@ -291,7 +291,7 @@ export default function App() {
     if (!selectedLang.trim()) return;
     setLang(selectedLang); setLoadingUi(true);
     try {
-      const res = await fetch(`http://${window.location.hostname}:8000/api/ui-language/${selectedLang}`);
+      const res = await fetch(`https://bisu17-ml-based-crop-recommendation-system.hf.space/api/ui-language/${selectedLang}`);
       if (!res.ok) throw new Error(tr("translationFailed", "Translation failed"));
       setUiDict(await res.json());
       setLanguageSelected(true);
