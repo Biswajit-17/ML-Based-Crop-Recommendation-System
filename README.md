@@ -12,6 +12,13 @@ An intelligent, multilingual crop recommendation engine built on real-world Indi
 
 ---
 
+## Live Cloud Deployment
+
+- **Backend API (Hugging Face Spaces):** [bisu17/ML-Based-Crop-Recommendation-System](https://huggingface.co/spaces/bisu17/ML-Based-Crop-Recommendation-System)
+- **Frontend App (Vercel):** Connect your GitHub to Vercel and deploy the `frontend` directory.
+
+---
+
 ## Problem Statement
 
 Given a district's soil nutrient levels (N, P, K), rainfall patterns, soil type, and irrigation availability — recommend the most suitable crops, estimate their expected yields, calculate a Suitability Score, and generate a personalized AI-driven farming advisory in any language.
@@ -43,8 +50,8 @@ The dataset was deliberately trimmed to the modern era (post-2000) to remove out
 | Data & EDA | Pandas, NumPy, Matplotlib, Seaborn |
 | ML Training | Scikit-learn, XGBoost |
 | Model Persistence | Joblib |
-| Web Backend | FastAPI + Uvicorn |
-| Web Frontend | React (Vite) + TailwindCSS |
+| Web Backend | FastAPI + Uvicorn (Deployed on Hugging Face Spaces via Docker) |
+| Web Frontend | React (Vite) + TailwindCSS (Deployed on Vercel) |
 | Live Climate | Open-Meteo Archive API (10-year rolling window) |
 | Geocoding | OpenStreetMap Nominatim |
 | Generative AI | OpenRouter (multi-model LLM orchestration) |
@@ -132,7 +139,7 @@ ML Based Crop Recommendation System/
 | 3 | EDA on modern-era dataset | ✅ Complete |
 | 4 | XGBoost Yield Simulator (retrained, regularized) | ✅ Complete |
 | 5 | FastAPI + React Web App + GenAI + Multilingual | ✅ Complete |
-| 6 | Documentation & Deployment | ✅ Complete |
+| 6 | Documentation & Cloud Deployment (Vercel + Hugging Face) | ✅ Complete |
 
 ---
 
@@ -140,8 +147,8 @@ ML Based Crop Recommendation System/
 
 ```bash
 # Clone the repository
-git clone <repo-url>
-cd "ML Based Crop Recommendation System"
+git clone https://github.com/Biswajit-17/ML-Based-Crop-Recommendation-System.git
+cd ML-Based-Crop-Recommendation-System
 
 # Create virtual environment
 python -m venv venv
@@ -158,9 +165,9 @@ npm install
 
 ---
 
-## How to Run
+## How to Run Locally
 
-Open **two terminal windows** in the project root.
+The application is natively deployed to the cloud, but you can also run it locally. Open **two terminal windows** in the project root.
 
 ### 1. Start the FastAPI Backend
 ```bash
