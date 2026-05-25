@@ -1,11 +1,3 @@
----
-title: Harvest ML
-emoji: 🌾
-colorFrom: green
-colorTo: yellow
-sdk: docker
-app_port: 7860
----
 # Harvest ML — AI Crop Intelligence Engine
 
 An intelligent, multilingual crop recommendation engine built on real-world Indian agricultural data from ICRISAT. The system uses an XGBoost regression simulator to predict expected crop yields across 19 crops, 20 states, and 310 districts — enriched with live 10-year satellite climate data and a generative AI advisory layer.
