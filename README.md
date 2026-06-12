@@ -202,4 +202,5 @@ Get a free key at [openrouter.ai](https://openrouter.ai).
 
 ## License
 
-This project uses publicly available agricultural data from ICRISAT (International Crops Research Institute for the Semi-Arid Tropics). Data is freely available for research and non-commercial use.
+Code: [MIT](LICENSE)
+Data: [ICRISAT Terms](DATA_LICENSE.md) — non-commercial research use only
